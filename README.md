@@ -39,3 +39,30 @@ Where the rules texts were ambiguous, explicit assumptions are recorded in `sim_
 - Keep randomness seeded via the engine RNG.
 - Engine modules must not import LLM SDKs.
 - Prefer clarity over cleverness; add new assumptions to `sim_py/docs/ASSUMPTIONS.md` when needed.
+
+## Environment Setup (venv)
+
+The engine targets Python 3.11+. Create an isolated environment with `venv` and install in editable mode.
+
+- Windows (PowerShell)
+  - `py -3.11 -m venv .venv`
+  - `.\.venv\Scripts\Activate.ps1`
+  - `python -m pip install -U pip`
+  - `pip install -e .[test]`
+  - Validate: `pytest -q`
+  - Run: `python -m sim_py.sim.cli --games 1 --seeds 123`
+  - Or via console script: `balance-control-sim --games 1 --seeds 123`
+
+- macOS/Linux
+  - `python3.11 -m venv .venv`
+  - `source .venv/bin/activate`
+  - `python -m pip install -U pip`
+  - `pip install -e .[test]`
+  - Validate: `pytest -q`
+  - Run: `python -m sim_py.sim.cli --games 1 --seeds 123`
+  - Or via console script: `balance-control-sim --games 1 --seeds 123`
+
+Notes
+- Use Python 3.11 or newer to satisfy the package constraint.
+- Deactivate anytime with `deactivate`.
+- Expansion toggles: add `--exp1` and/or `--exp2` to CLI commands.
