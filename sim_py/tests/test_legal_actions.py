@@ -1,6 +1,6 @@
 ﻿# importfix
 import sys, pathlib as _p
-sys.path.insert(0, str(_p.Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(_p.Path(__file__).resolve().parents[2]))
 
 from sim_py.engine.state import new_game_state
 from sim_py.engine.legal import get_legal_actions

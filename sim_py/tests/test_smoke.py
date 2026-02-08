@@ -1,6 +1,6 @@
 ﻿# importfix
 import sys, pathlib as _p
-sys.path.insert(0, str(_p.Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(_p.Path(__file__).resolve().parents[2]))
 
 from sim_py.sim.runner import run_one_game
 from sim_py.engine.ruleset import RuleSet

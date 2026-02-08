@@ -70,9 +70,13 @@ def apply_action(state: GameState, action: Action) -> GameState:
         rs = RuleSet.from_config(state.expansions)
         rs.modify_majority_context(ctx)
         for tid in list(state.board.tiles.keys()):
+            # brenpunkt: each tile check is a trigger; effective if not a tie
+            state.metrics["brenpunkt_triggered_count"] = state.metrics.get("brenpunkt_triggered_count", 0) + 1
             new_ctrl = resolve_control_for_tile(state, tid, stickiness=ctx.get("stickiness", 0))
             if new_ctrl is None:
                 state.metrics["blocked_majority_checks_count"] += 1
+            else:
+                state.metrics["brenpunkt_effective_count"] = state.metrics.get("brenpunkt_effective_count", 0) + 1
             state.board.control[tid] = new_ctrl
         pid = state.current_player
         state.players[pid].formalizations += 1

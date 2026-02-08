@@ -1,4 +1,4 @@
-# Metrics
+﻿# Metrics
 
 Minimum emitted per game:
 - `winner`
@@ -11,3 +11,5 @@ Minimum emitted per game:
 - `influence_moves_count`
 - `pass_count`
 - `stagnation_turns` (defined as count of PASS actions)
+- `brenpunkt_triggered_count`: number of tile-level majority checks performed during formalization.
+- `brenpunkt_effective_count`: number of those checks that were non-ties (i.e., a controller exists).
