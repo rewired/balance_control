@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BALANCE // CONTROL – Icon-Übersicht (Material Symbols Sharp)</title>
+
+  <!-- Material Symbols Sharp (Google Fonts, Apache 2.0) -->
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@24,600,0,0" />
+
+  <style>
+    :root{
+      --bg:#0b0d10;
+      --panel:#12161c;
+      --panel2:#0f1318;
+      --text:#e8eef7;
+      --muted:#aab6c6;
+      --stroke:rgba(255,255,255,.08);
+
+      /* Type colors */
+      --innen:#0B2A5B;
+      --aussen:#0E6A6A;
+      --medien:#5A2A82;
+      --wirtschaft:#E67E22;
+      --sicherheit:#C0392B;
+      --klima:#1E8E3E;
+
+      --ausschuss:#2B2B2B;
+      --lobbyist:#F1C40F;
+      --basisarbeit:#B07D2B;
+      --brennpunkt:#111111;
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      padding:32px;
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+
+    header{
+      max-width:1160px;
+      margin:0 0 18px 0;
+    }
+
+    h1{
+      font-size:20px;
+      margin:0 0 8px 0;
+      letter-spacing:.02em;
+    }
+
+    p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.45;
+      max-width:980px;
+    }
+
+    .row{
+      max-width:1160px;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:16px;
+      margin-top:18px;
+    }
+
+    .section{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      padding:16px;
+    }
+
+    .section-title{
+      font-size:12px;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin:0 0 12px 0;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap:14px;
+    }
+
+    .tile{
+      background:var(--panel2);
+      border:1px solid var(--stroke);
+      border-radius:14px;
+      padding:14px;
+      display:flex;
+      align-items:center;
+      gap:14px;
+      min-height:78px;
+    }
+
+    .swatch{
+      width:56px;
+      height:56px;
+      border-radius:12px;
+      display:grid;
+      place-items:center;
+      box-shadow:0 10px 22px rgba(0,0,0,.25);
+      border:1px solid rgba(255,255,255,.12);
+      flex:0 0 auto;
+    }
+
+    .label{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+    .name{ font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .meta{ font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .material-symbols-sharp{
+      font-size:28px;
+      font-variation-settings:
+        "FILL" 0,
+        "wght" 600,
+        "GRAD" 0,
+        "opsz" 24;
+      line-height:1;
+    }
+
+    /* Swatch colors + recommended icon foreground */
+    .innen{ background:var(--innen); color:#fff; }
+    .aussen{ background:var(--aussen); color:#fff; }
+    .medien{ background:var(--medien); color:#fff; }
+    .wirtschaft{ background:var(--wirtschaft); color:#111; }
+    .sicherheit{ background:var(--sicherheit); color:#fff; }
+    .klima{ background:var(--klima); color:#fff; }
+    .ausschuss{ background:var(--ausschuss); color:#fff; }
+    .lobbyist{ background:var(--lobbyist); color:#111; }
+    .basisarbeit{ background:var(--basisarbeit); color:#111; }
+    .brennpunkt{ background:var(--brennpunkt); color:#fff; }
+
+    /* Compact mapping table */
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      overflow:hidden;
+      border-radius:12px;
+      border:1px solid var(--stroke);
+      background:var(--panel2);
+      font-size:13px;
+    }
+    th, td{
+      padding:10px 12px;
+      border-bottom:1px solid var(--stroke);
+      vertical-align:middle;
+    }
+    th{
+      text-align:left;
+      color:var(--muted);
+      font-size:12px;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      background:rgba(255,255,255,.03);
+    }
+    tr:last-child td{ border-bottom:none; }
+    code{
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.08);
+      padding:2px 6px;
+      border-radius:8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+      color:var(--text);
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    .dot{
+      width:10px;
+      height:10px;
+      border-radius:3px;
+      border:1px solid rgba(255,255,255,.18);
+      display:inline-block;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>BALANCE // CONTROL – Komplette Icon-Übersicht</h1>
+    <p>
+      Finales Mapping der Tile-Typen auf <strong>Material Symbols (Sharp)</strong> inkl. Farbcodierung. 
+      Wichtig: Farbe codiert den <em>Tile-Typ</em>, nicht den Wert. Wirtschaft ist final auf <strong>factory</strong> festgezogen.
+    </p>
+  </header>
+
+  <div class="row">
+
+    <section class="section">
+      <div class="section-title">Tiles (visuelle Referenz)</div>
+      <div class="grid">
+        <div class="tile"><div class="swatch innen"><span class="material-symbols-sharp">account_balance</span></div><div class="label"><div class="name">Innenpolitik</div><div class="meta"><code>account_balance</code> · Farbe <code>--innen</code></div></div></div>
+        <div class="tile"><div class="swatch aussen"><span class="material-symbols-sharp">public</span></div><div class="label"><div class="name">Außenpolitik</div><div class="meta"><code>public</code> · Farbe <code>--aussen</code></div></div></div>
+        <div class="tile"><div class="swatch medien"><span class="material-symbols-sharp">visibility</span></div><div class="label"><div class="name">Medienkontrolle</div><div class="meta"><code>visibility</code> · Farbe <code>--medien</code></div></div></div>
+        <div class="tile"><div class="swatch wirtschaft"><span class="material-symbols-sharp">factory</span></div><div class="label"><div class="name">Wirtschaft</div><div class="meta"><code>factory</code> · Farbe <code>--wirtschaft</code></div></div></div>
+        <div class="tile"><div class="swatch sicherheit"><span class="material-symbols-sharp">shield</span></div><div class="label"><div class="name">Sicherheit</div><div class="meta"><code>shield</code> · Farbe <code>--sicherheit</code></div></div></div>
+        <div class="tile"><div class="swatch klima"><span class="material-symbols-sharp">eco</span></div><div class="label"><div class="name">Klima</div><div class="meta"><code>eco</code> · Farbe <code>--klima</code></div></div></div>
+
+        <div class="tile"><div class="swatch ausschuss"><span class="material-symbols-sharp">gavel</span></div><div class="label"><div class="name">Ausschuss</div><div class="meta"><code>gavel</code> · Farbe <code>--ausschuss</code></div></div></div>
+        <div class="tile"><div class="swatch lobbyist"><span class="material-symbols-sharp">campaign</span></div><div class="label"><div class="name">Lobbyist</div><div class="meta"><code>campaign</code> · Farbe <code>--lobbyist</code></div></div></div>
+        <div class="tile"><div class="swatch basisarbeit"><span class="material-symbols-sharp">hub</span></div><div class="label"><div class="name">Basisarbeit</div><div class="meta"><code>hub</code> · Farbe <code>--basisarbeit</code></div></div></div>
+        <div class="tile"><div class="swatch brennpunkt"><span class="material-symbols-sharp">priority_high</span></div><div class="label"><div class="name">Brennpunkt</div><div class="meta"><code>priority_high</code> · Farbe <code>--brennpunkt</code></div></div></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">Mapping (kompakt)</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Tile-Typ</th>
+            <th>Farbe</th>
+            <th>Material Symbol (Sharp)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Innenpolitik</td><td><span class="pill"><span class="dot" style="background:var(--innen)"></span><code>--innen</code></span></td><td><code>account_balance</code></td></tr>
+          <tr><td>Außenpolitik</td><td><span class="pill"><span class="dot" style="background:var(--aussen)"></span><code>--aussen</code></span></td><td><code>public</code></td></tr>
+          <tr><td>Medienkontrolle</td><td><span class="pill"><span class="dot" style="background:var(--medien)"></span><code>--medien</code></span></td><td><code>visibility</code></td></tr>
+          <tr><td>Wirtschaft</td><td><span class="pill"><span class="dot" style="background:var(--wirtschaft)"></span><code>--wirtschaft</code></span></td><td><code>factory</code></td></tr>
+          <tr><td>Sicherheit</td><td><span class="pill"><span class="dot" style="background:var(--sicherheit)"></span><code>--sicherheit</code></span></td><td><code>shield</code></td></tr>
+          <tr><td>Klima</td><td><span class="pill"><span class="dot" style="background:var(--klima)"></span><code>--klima</code></span></td><td><code>eco</code></td></tr>
+          <tr><td>Ausschuss</td><td><span class="pill"><span class="dot" style="background:var(--ausschuss)"></span><code>--ausschuss</code></span></td><td><code>gavel</code></td></tr>
+          <tr><td>Lobbyist</td><td><span class="pill"><span class="dot" style="background:var(--lobbyist)"></span><code>--lobbyist</code></span></td><td><code>campaign</code></td></tr>
+          <tr><td>Basisarbeit</td><td><span class="pill"><span class="dot" style="background:var(--basisarbeit)"></span><code>--basisarbeit</code></span></td><td><code>hub</code></td></tr>
+          <tr><td>Brennpunkt</td><td><span class="pill"><span class="dot" style="background:var(--brennpunkt)"></span><code>--brennpunkt</code></span></td><td><code>priority_high</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+  </div>
+</body>
+</html>
