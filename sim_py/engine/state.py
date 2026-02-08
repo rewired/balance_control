@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Tuple, Dict, Optional
 from .rng import RNG
@@ -40,6 +40,12 @@ def new_game_state(seed: int, expansions: ExpansionsConfig, num_players: int = 3
             "influence_moves_count": 0,
             "pass_count": 0,
             "rounds_played": 0,
+            "economy_labor_paid_total": 0,
+            "conversion_count": 0,
+            "control_changes_total": 0,
+            "control_changes_work_tiles": 0,
+            "series_influence_on_board_by_player": [],
+            "series_resources_sum_by_player": [],
         },
     )
 

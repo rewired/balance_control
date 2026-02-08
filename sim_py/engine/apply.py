@@ -69,6 +69,7 @@ def apply_action(state: GameState, action: Action) -> GameState:
         ctx = {"stickiness": 0}
         rs = RuleSet.from_config(state.expansions)
         rs.modify_majority_context(ctx)
+        prev_ctrl = dict(state.board.control)
         for tid in list(state.board.tiles.keys()):
             # brenpunkt: each tile check is a trigger; effective if not a tie
             state.metrics["brenpunkt_triggered_count"] = state.metrics.get("brenpunkt_triggered_count", 0) + 1
@@ -77,6 +78,11 @@ def apply_action(state: GameState, action: Action) -> GameState:
                 state.metrics["blocked_majority_checks_count"] += 1
             else:
                 state.metrics["brenpunkt_effective_count"] = state.metrics.get("brenpunkt_effective_count", 0) + 1
+            if prev_ctrl.get(tid) != new_ctrl:
+                state.metrics["control_changes_total"] = state.metrics.get("control_changes_total", 0) + 1
+                ttype = state.board.tiles[tid].type
+                if ttype == "WORK":
+                    state.metrics["control_changes_work_tiles"] = state.metrics.get("control_changes_work_tiles", 0) + 1
             state.board.control[tid] = new_ctrl
         pid = state.current_player
         state.players[pid].formalizations += 1
@@ -92,6 +98,7 @@ def apply_action(state: GameState, action: Action) -> GameState:
             raise IllegalActionError("invalid conversion amount")
         state.players[pid].resources[src] = have - amt
         state.players[pid].resources[dst] = state.players[pid].resources.get(dst, 0) + amt
+        state.metrics["conversion_count"] = state.metrics.get("conversion_count", 0) + 1
 
     else:
         raise IllegalActionError(f"Unknown action type: {action.type}")
