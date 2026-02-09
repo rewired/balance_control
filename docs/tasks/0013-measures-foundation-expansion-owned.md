@@ -224,3 +224,47 @@ If this fails, 0013 is **not complete**.
 * [ ] No TODOs that imply redesign
 
 ---
+
+Summary
+
+Core Measure API: added stable, expansion-agnostic helpers
+createMeasureState, takeMeasure, playMeasure, resetMeasureRoundFlags in packages/core/src/measures/helpers.ts
+Re-exported from packages/core/src/index.ts for expansions to import directly.
+Expansion-owned economy measures:
+Economy initializes its measures under snapshot.state.extensions.economy.measures using core helpers.
+Registered actions: exp.economy.measure.take and exp.economy.measure.play using the core helpers for lifecycle.
+No measure IDs or meanings appear in core.
+Engine-level round integration:
+On round increment inside core.passTurn, engine iterates all extensions and calls resetMeasureRoundFlags() on any ext that exposes a measures object.
+Effects pruning still runs after state updates.
+Effects remain the only execution path:
+Economy’s measure reducers strictly maintain lifecycle. Effects for actual measure meaning can be added via onValidateAction/onApplyAction hooks later; no direct state hacks.
+Tests updated/added:
+Existing core measure tests already covered lifecycle, hand limit, per-round cap, and recycle.
+Duplicate resource ID handling is now a structured server error, with tests.
+Files touched
+
+packages/core/src/measures/helpers.ts (new)
+packages/core/src/index.ts (export Measure API)
+packages/core/src/expansion/engine.ts (round reset over extensions)
+packages/exp-economy/src/index.ts (integrated measure lifecycle; actions)
+apps/server/src/app.ts (already wrapped DUPLICATE_RESOURCE_ID to ServerError previously)
+Manual verification steps
+
+Build: pnpm -w -r build
+Tests: pnpm -w -r test
+Economy manual check (optional):
+Start server/client dev if desired.
+Create session with enabledExpansions: ["economy"].
+Observe extensions.economy.measures exists in snapshot.
+Dispatch exp.economy.measure.take with index 0..2 from active player → hand grows, faceUp refills.
+Dispatch exp.economy.measure.play with a measureId from hand → hand shrinks, discard grows; attempting second play same round should fail at core-level lifecycle (engine-side; hook logic for effects can be added next task).
+After full table loop, round increments and per-round flags reset (allowing a new play next round).
+Exact commands
+
+pnpm -w -r build
+pnpm -w -r test
+Notes
+
+The engine round reset uses a safe require('../measures/helpers') at runtime to keep the core modular. If you prefer static import, we can move helpers to a top-level import; current approach avoids circular load risk.
+For Task 0013 effects examples (one-shot, until next turn, until end of next round), we can add expansion hooks that produce appropriate ActiveEffect entries on play; the core expiry tick already supports atTurn/atRound/atNextTurnOfPlayerId. Want me to wire the three reference effects next?

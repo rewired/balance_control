@@ -147,7 +147,23 @@ export function createEngine(options: EngineOptions): Engine {
       const pools = (snapshot.state.resourcesByPlayerId as Record<string, Record<string, number>>) ?? {}; const current = { ...(pools[active.id] ?? {}) }; for (const [rid, amt] of Object.entries(totals)) { current[rid] = (current[rid] ?? 0) + amt; }
       const resEntry = { id: action.actionId + ':res', at, kind: 'resourceResolution', message: `${active.name ?? active.id} resources resolved`, payload: { playerId: active.id, delta: totals, tileCount } };
       const passEntry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} ended their turn` };
-      const aboutToBeActiveId = players[nextIndex]?.id; const prunedState = pruneExpiredEffects({ ...snapshot.state, resourcesByPlayerId: { ...pools, [active.id]: current }, activePlayerIndex: nextIndex, activePlayerId: players[nextIndex]?.id, phase: 'awaitingPlacement', round: nextRound, turnInRound: nextTurnInRound, roundStartPlayerIndex, turn: (snapshot.state.turn as number) + 1 } as any, aboutToBeActiveId);
+      const aboutToBeActiveId = players[nextIndex]?.id;
+      // Round reset: when round increments, clear per-round measure flags on all extensions that expose measures.
+      let newState: any = { ...snapshot.state, resourcesByPlayerId: { ...pools, [active.id]: current }, activePlayerIndex: nextIndex, activePlayerId: players[nextIndex]?.id, phase: 'awaitingPlacement', round: nextRound, turnInRound: nextTurnInRound, roundStartPlayerIndex, turn: (snapshot.state.turn as number) + 1 };
+      if (nextRound !== (snapshot.state as any).round) {
+        const exts = { ...(newState.extensions ?? {}) } as Record<string, any>;
+        for (const k of Object.keys(exts).sort()) {
+          const ext = exts[k];
+          if (ext && typeof ext === 'object' && ext.measures && typeof ext.measures === 'object') {
+            try {
+              const { resetMeasureRoundFlags } = require('../measures/helpers');
+              ext.measures = resetMeasureRoundFlags(ext.measures);
+            } catch {}
+          }
+        }
+        newState = { ...newState, extensions: exts };
+      }
+      const prunedState = pruneExpiredEffects(newState, aboutToBeActiveId);
       const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: prunedState, log: [...snapshot.log, resEntry, passEntry] };
       for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} } GameSnapshotSchema.parse(next);
       const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
