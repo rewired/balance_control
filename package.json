@@ -1,0 +1,31 @@
+{
+    "name":  "balance-control",
+    "private":  true,
+    "version":  "0.0.0",
+    "type":  "module",
+    "packageManager":  "pnpm@10.18.0",
+    "scripts":  {
+                    "dev":  "concurrently -k -n server,client -c green,blue \"pnpm --filter @bc/server dev\" \"pnpm --filter @bc/client dev\"",
+                    "build":  "pnpm -r build",
+                    "test":  "pnpm -r test",
+                    "lint":  "pnpm -r lint",
+                    "format":  "prettier . --write",
+                    "preview":  "pnpm --filter @bc/client preview",
+                    "preview:full":  "pnpm --filter @bc/client build \u0026\u0026 cross-env SERVE_STATIC=1 pnpm --filter @bc/server start",
+                    "ci:smoke":  "pnpm install --frozen-lockfile \u0026\u0026 pnpm rebuild esbuild \u0026\u0026 pnpm -r build \u0026\u0026 pnpm -r test \u0026\u0026 pnpm -r lint"
+                },
+    "devDependencies":  {
+                            "@eslint/js":  "^9.39.2",
+                            "@types/node":  "^25.2.2",
+                            "concurrently":  "^9.2.1",
+                            "cross-env":  "^10.1.0",
+                            "eslint":  "^9.39.2",
+                            "eslint-plugin-react":  "^7.37.5",
+                            "eslint-plugin-react-hooks":  "^7.0.1",
+                            "prettier":  "^3.8.1",
+                            "tsx":  "^4.21.0",
+                            "typescript":  "^5.9.3",
+                            "typescript-eslint":  "^8.54.0",
+                            "vitest":  "^4.0.18"
+                        }
+}
