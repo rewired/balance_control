@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { createEngine } from './expansion/engine';
 import type { GameState, HexCoord, PlacedTile } from './protocol';
 import { computeMajority, getControlLeaderId } from './majority';
 
@@ -65,7 +64,6 @@ describe('majority service', () => {
   it('4) lobbyist bonus applies: neighbor lobbyist controlled by p1 breaks tie', () => {
     const target = { q: 3, r: 3 } satisfies HexCoord;
     const targetKey = '3,3';
-    const lobby = { q: 4, r: 3 } satisfies HexCoord; // (1,0) neighbor
     const lobbyKey = '4,3';
     const state = makeState({
       board: { cells: [cell(targetKey,'resort',3,3), cell(lobbyKey,'lobbyist',4,3)] },
@@ -124,4 +122,6 @@ describe('majority service', () => {
     expect(getControlLeaderId(state, { q: 5, r: 5 })).toBe('p2');
   });
 });
+
+
 

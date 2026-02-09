@@ -9,7 +9,7 @@ describe('supply + draw & immediate placement (no hands)', () => {
     const engine = createEngine({ expansions: [] });
     let snapMutable = engine.createInitialSnapshot({ sessionId: 's1', mode: 'hotseat', enabledExpansions: [], seed: 'seed-1', players });
     const s0 = snapMutable.state.supply;
-    let r = engine.applyAction(snapMutable, { sessionId: 's1', actionId: 'd1', type: 'core.drawTile', payload: {}, actorId: 'p1' });
+    const r = engine.applyAction(snapMutable, { sessionId: 's1', actionId: 'd1', type: 'core.drawTile', payload: {}, actorId: 'p1' });
     expect(r.ok).toBe(true);
     if (r.ok) {
       snapMutable = r.next;
@@ -22,7 +22,7 @@ describe('supply + draw & immediate placement (no hands)', () => {
   it('placeTile places the drawn tile and clears pending', () => {
     const engine = createEngine({ expansions: [] });
     let snap = engine.createInitialSnapshot({ sessionId: 's1', mode: 'hotseat', enabledExpansions: [], seed: 'seed-xyz', players });
-    let r = engine.applyAction(snap, { sessionId: 's1', actionId: 'd1', type: 'core.drawTile', payload: {}, actorId: 'p1' });
+    const r = engine.applyAction(snap, { sessionId: 's1', actionId: 'd1', type: 'core.drawTile', payload: {}, actorId: 'p1' });
     if (!r.ok) throw new Error('draw failed');
     snap = r.next;
     const place: ActionEnvelope = { sessionId: 's1', actionId: 'p1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 } }, actorId: 'p1' } as any;
@@ -71,3 +71,4 @@ describe('supply + draw & immediate placement (no hands)', () => {
     }
   });
 });
+

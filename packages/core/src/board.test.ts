@@ -40,7 +40,7 @@ describe('board + core.placeTile', () => {
     if (!pass.ok) throw new Error('pass failed');
     snap = pass.next;
     // p2 draw then attempt to place at occupied coord
-    let d2 = engine.applyAction(snap, { sessionId: 's1', actionId: 'd2', type: 'core.drawTile', payload: {}, actorId: 'p2' } as any);
+    const d2 = engine.applyAction(snap, { sessionId: 's1', actionId: 'd2', type: 'core.drawTile', payload: {}, actorId: 'p2' } as any);
     if (!d2.ok) throw new Error('p2 draw');
     const p2Try: ActionEnvelope = { sessionId: 's1', actionId: 'p2', type: 'core.placeTile', payload: { coord: { q: 1, r: 1 } }, actorId: 'p2' } as any;
     const r4 = engine.applyAction(d2.next, p2Try);
@@ -57,3 +57,4 @@ describe('board + core.placeTile', () => {
     expect(Array.isArray(back.state.board.cells)).toBe(true);
   });
 });
+

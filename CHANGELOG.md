@@ -83,3 +83,9 @@ Additional notes on 2026-02-09:
 
 
 
+### 2026-02-09 (round settlement + noise)
+- Core: added deterministic round settlement per Rule 10.1; tiles with production pay out by majority on each tile at round wrap. Ties split by floor; remainder goes to noise (Rule 13).
+- Core: added 
+oise pool to GameState (per-resource, non-spendable). Initialized to zero for all registered resources.
+- Core: settlement runs automatically when the active player wraps to the round start player; helper exported for final settlement.
+- Tests: added unit tests covering no influence, clear majority, tie with/without remainder, multi-tile aggregation, determinism, and engine wrap integration.

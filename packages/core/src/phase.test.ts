@@ -20,11 +20,11 @@ describe('turn phase enforcement (7.1 -> 7.2 -> pass)', () => {
     snap = (r as any).next;
 
     // Pass before action -> error (must place first)
-    let rPass = engine.applyAction(snap, { sessionId: 's', actionId: 'pass0', type: 'core.passTurn', payload: {}, actorId: 'p1' });
+    const rPass = engine.applyAction(snap, { sessionId: 's', actionId: 'pass0', type: 'core.passTurn', payload: {}, actorId: 'p1' });
     expect(rPass.ok).toBe(false); if (!rPass.ok) expect(rPass.error.code).toBe('WRONG_TURN_PHASE');
 
     // Place -> moves to awaitingAction
-    let rPlace = engine.applyAction(snap, { sessionId: 's', actionId: 'p1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 } }, actorId: 'p1' } as any);
+    const rPlace = engine.applyAction(snap, { sessionId: 's', actionId: 'p1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 } }, actorId: 'p1' } as any);
     expect(rPlace.ok).toBe(true);
     snap = (rPlace as any).next;
     expect((snap.state as any).phase).toBe('awaitingAction');

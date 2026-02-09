@@ -117,6 +117,8 @@ export const GameStateSchema = z.object({
   // Resource registry and per-player resource pools.
   resources: z.object({ registry: z.array(ResourceDefSchema) }),
   resourcesByPlayerId: z.record(z.string(), z.record(z.string(), z.number().int().nonnegative())).default({}),
+  // Public noise pool (Rauschen): non-spendable per resource.
+  noise: z.record(z.string(), z.number().int().nonnegative()).default({}),
   // Influence markers per tile: key is CoordKey (q,r), value is per-player counts.
   // Invariants: counts are integers in [0,3]; entries only for existing tiles.
   influenceByCoord: z.record(z.string(), z.record(z.string(), z.number().int().min(0).max(3))).default({}),
@@ -169,6 +171,7 @@ export interface ClientToServerEvents {
 
 export type InterServerEvents = Record<string, never>;
 export type SocketData = Record<string, never>;
+
 
 
 

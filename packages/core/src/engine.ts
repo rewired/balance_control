@@ -24,6 +24,7 @@ export function createInitialState(config: GameConfig & { sessionId: string }): 
       pendingPlacementTile: null,
       effects: [],
       extensions: {},
+      noise: {},
     },
     log: [],
   };
