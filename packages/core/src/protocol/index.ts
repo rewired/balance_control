@@ -30,6 +30,9 @@ export const ServerErrorSchema = z.object({
     'SUPPLY_EMPTY',
     'HAND_FULL',
     'TILE_NOT_IN_HAND',
+    'WRONG_TURN_PHASE',
+    'PLACEMENT_ALREADY_DONE',
+    'ACTION_NOT_ALLOWED_IN_PHASE',
   ]),
   message: z.string(),
   details: z.unknown().optional(),
@@ -76,12 +79,17 @@ export const PlacedTileSchema = z.object({
 export type PlacedTile = z.infer<typeof PlacedTileSchema>;
 
 export const GameStateSchema = z.object({
+  // Turn phase lifecycle: awaitingPlacement -> awaitingAction -> awaitingPass
+  // Enforces one placement per turn, then at most one other action, then mandatory pass.
+  phase: z.enum(['awaitingPlacement','awaitingAction','awaitingPass']),
   // Turn invariants:
   // - Exactly one active player at all times (players.length >= 1 => 0 <= activePlayerIndex < players.length).
   // - activePlayerIndex always valid.
   // - turn increments only on turn-ending actions (placeTile does NOT end turn in MVP).
   players: z.array(PlayerSchema),
   activePlayerIndex: z.number().int().nonnegative(),
+  // Convenience mirror of the active player's id for snapshot consumers.
+  activePlayerId: z.string().optional(),
   turn: z.number().int().positive(),
   // Board stored as JSON-stable entry array for deterministic lookups and replay stability.
   board: z.object({
@@ -124,3 +132,6 @@ export interface ClientToServerEvents {
 
 export type InterServerEvents = Record<string, never>;
 export type SocketData = Record<string, never>;
+
+
+

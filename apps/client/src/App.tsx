@@ -75,6 +75,8 @@ export function App() {
   }
 
   const cells = snapshot ? snapshot.state.board.cells : [];
+  const phase = (snapshot?.state as { phase?: 'awaitingPlacement' | 'awaitingAction' | 'awaitingPass' })?.phase as 'awaitingPlacement' | 'awaitingAction' | 'awaitingPass' | undefined;
+  const activeId = (snapshot?.state as { activePlayerId?: string })?.activePlayerId ?? snapshot?.state.players[snapshot?.state.activePlayerIndex ?? 0]?.id;
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', padding: 24 }}>
@@ -99,6 +101,8 @@ export function App() {
             <ul>
               <li>revision: {snapshot.revision}</li>
               <li>turn: {snapshot.state.turn}</li>
+              <li>phase: {phase}</li>
+              <li>activePlayerId: {activeId}</li>
             </ul>
             <h4>Players</h4>
             <ul>
@@ -108,8 +112,8 @@ export function App() {
                 </li>
               ))}
             </ul>
-            <button onClick={passTurn}>Pass turn</button>
-            <button style={{ marginLeft: 8 }} onClick={drawTile}>Draw tile</button>
+            <button onClick={passTurn} disabled={phase !== 'awaitingPass'}>Pass turn</button>
+            <button style={{ marginLeft: 8 }} onClick={drawTile} disabled={phase !== 'awaitingAction'}>Draw tile</button>
             <h4>Active hand</h4>
             {(() => {
               const active = snapshot.state.players[snapshot.state.activePlayerIndex];
@@ -146,7 +150,7 @@ export function App() {
             <div>
               <label>q: <input type="number" value={q} onChange={(e) => setQ(Number(e.target.value))} /></label>
               <label style={{ marginLeft: 8 }}>r: <input type="number" value={r} onChange={(e) => setR(Number(e.target.value))} /></label>
-              <button style={{ marginLeft: 8 }} onClick={placeTile} disabled={!selectedTileId}>Place tile</button>
+              <button style={{ marginLeft: 8 }} onClick={placeTile} disabled={phase !== 'awaitingPlacement' || !selectedTileId}>Place tile</button>
             </div>
           </>
         ) : (
@@ -172,5 +176,7 @@ export function App() {
     </main>
   );
 }
+
+
 
 

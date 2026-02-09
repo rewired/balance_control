@@ -23,10 +23,8 @@ describe('server placeTile integration', () => {
     socket.emit('client:join', { sessionId: res.body.sessionId });
     const first = await once<GameSnapshot>(socket, 'server:snapshot');
 
-    // Draw 1 tile
-    socket.emit('client:dispatch', { sessionId: first.sessionId, actionId: 'draw1', type: 'core.drawTile', payload: {}, actorId: 'p1' });
-    const afterDraw = await once<GameSnapshot>(socket, 'server:snapshot');
-    const hand = (afterDraw.state.hands as any)['p1'] as Array<{ id: string; kind: string }>;
+    // Place from initial hand (one tile dealt at start)
+    const hand = (first.state.hands as any)['p1'] as Array<{ id: string; kind: string }>;
     const tileId = hand[0].id;
 
     // Place from hand
@@ -42,3 +40,6 @@ describe('server placeTile integration', () => {
     await new Promise<void>((r) => httpServer.close(() => r()));
   });
 });
+
+
+

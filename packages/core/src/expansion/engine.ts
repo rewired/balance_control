@@ -15,7 +15,10 @@ export type EngineErrorCode =
   | 'DUPLICATE_TILE_ID'
   | 'SUPPLY_EMPTY'
   | 'HAND_FULL'
-  | 'TILE_NOT_IN_HAND';
+  | 'TILE_NOT_IN_HAND'
+  | 'WRONG_TURN_PHASE'
+  | 'PLACEMENT_ALREADY_DONE'
+  | 'ACTION_NOT_ALLOWED_IN_PHASE';
 
 export interface Engine {
   registries: EngineRegistries;
@@ -45,11 +48,16 @@ export function createEngine(options: EngineOptions): Engine {
   });
   registries.actions.set('core.drawTile', { type: 'core.drawTile', payload: z.object({}).strict() as ZodTypeAny });
 
-  function createInitialSnapshot(
+    function createInitialSnapshot(
     config: (GameConfig & { sessionId: string }) & { players?: Array<{ id: string; name?: string }> }
   ): GameSnapshot {
     const now = Date.now();
     const players = (config.players ?? []).map((p, i) => ({ id: p.id, name: p.name, index: i }));
+    // Generate deterministic supply and deal 1 tile to each player at start so turn 1 can place.
+    const tiles = generateSupplyTiles({ seed: config.seed ?? 'seed' });
+    const handsInit: Record<string, Array<{ id: string; kind: string }>> = Object.fromEntries(players.map((p) => [p.id, []]));
+    let drawIndex = 0;
+    for (const p of players) { const t = tiles[drawIndex]; if (t !== undefined) { (handsInit[p.id]!).push(t); drawIndex++; } }
     const snapshot: GameSnapshot = {
       sessionId: config.sessionId,
       revision: 0,
@@ -59,11 +67,12 @@ export function createEngine(options: EngineOptions): Engine {
       state: {
         players,
         activePlayerIndex: 0,
+        activePlayerId: players[0]?.id,
+        phase: 'awaitingPlacement',
         turn: 1,
         board: { cells: [] },
-        // Supply and hands start empty hands; no auto-draw in MVP.
-        supply: { tiles: generateSupplyTiles({ seed: config.seed ?? 'seed' }), drawIndex: 0 },
-        hands: Object.fromEntries(players.map((p) => [p.id, [] as Array<{ id: string; kind: string }>])),
+        supply: { tiles, drawIndex },
+        hands: handsInit,
         extensions: {},
       },
       log: [],
@@ -73,9 +82,7 @@ export function createEngine(options: EngineOptions): Engine {
       if (init) (snapshot.state.extensions as Record<string, unknown>)[id] = init();
     }
     return snapshot;
-  }
-
-  function applyAction(snapshot: GameSnapshot, action: ActionEnvelope) {
+  }function applyAction(snapshot: GameSnapshot, action: ActionEnvelope) {
     const schema = registries.actions.get(action.type);
     if (!schema) {
       return {
@@ -92,6 +99,7 @@ export function createEngine(options: EngineOptions): Engine {
       return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'Invalid payload', details: parsed.error.flatten() } };
     }
 
+    // Allow noop for diagnostics regardless of phase.
     if (action.type === 'core.noop') {
       const at = Date.now();
       const entry = { id: action.actionId, at, kind: action.type, message: 'No-op applied' };
@@ -100,18 +108,22 @@ export function createEngine(options: EngineOptions): Engine {
       return { ok: true as const, next, events: [entry] };
     }
 
-    // Turn logic is part of the core engine to keep a single authoritative ruleset.
-    // The server orchestrates persistence and broadcasting but must not override core turn flow.
+    const players = snapshot.state.players as Array<{ id: string; index: number; name?: string }>;
+    const activeIndex = snapshot.state.activePlayerIndex as number;
+    const active = players[activeIndex];
+    if (!active) {
+      return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'No players initialized' } };
+    }
+    if (action.actorId !== active.id) {
+      return { ok: false as const, error: { code: 'NOT_ACTIVE_PLAYER' as EngineErrorCode, message: 'Actor is not the active player' } };
+    }
+
+    const phase = (snapshot.state as { phase: 'awaitingPlacement' | 'awaitingAction' | 'awaitingPass' }).phase as 'awaitingPlacement' | 'awaitingAction' | 'awaitingPass';
+
+    // Core action reducers with phase gates
     if (action.type === 'core.passTurn') {
-      // Validate actor authority: only the active player may pass the turn.
-      const players = snapshot.state.players as Array<{ id: string; index: number; name?: string }>;
-      const activeIndex = snapshot.state.activePlayerIndex as number;
-      const active = players[activeIndex];
-      if (!active || players.length === 0) {
-        return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'No players initialized' } };
-      }
-      if (action.actorId !== active.id) {
-        return { ok: false as const, error: { code: 'NOT_ACTIVE_PLAYER' as EngineErrorCode, message: 'Action actor is not the active player' } };
+      if (phase !== 'awaitingPass') {
+        return { ok: false as const, error: { code: 'WRONG_TURN_PHASE' as EngineErrorCode, message: 'Pass is only allowed in awaitingPass' } };
       }
       const nextIndex = (activeIndex + 1) % players.length;
       const at = Date.now();
@@ -120,7 +132,7 @@ export function createEngine(options: EngineOptions): Engine {
         ...snapshot,
         revision: snapshot.revision + 1,
         updatedAt: at,
-        state: { ...snapshot.state, activePlayerIndex: nextIndex, turn: (snapshot.state.turn as number) + 1 },
+        state: { ...snapshot.state, activePlayerIndex: nextIndex, activePlayerId: players[nextIndex]?.id, phase: 'awaitingPlacement', turn: (snapshot.state.turn as number) + 1 },
         log: [...snapshot.log, entry],
       };
       GameSnapshotSchema.parse(next);
@@ -128,11 +140,8 @@ export function createEngine(options: EngineOptions): Engine {
     }
 
     if (action.type === 'core.drawTile') {
-      const players = snapshot.state.players as Array<{ id: string; index: number; name?: string }>;
-      const activeIndex = snapshot.state.activePlayerIndex as number;
-      const active = players[activeIndex];
-      if (!active) {
-        return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'No players initialized' } };
+      if (phase !== 'awaitingAction') {
+        return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Draw is only allowed after placement' } };
       }
       const supply = snapshot.state.supply as { tiles: Array<{ id: string; kind: string }>; drawIndex: number };
       if (supply.drawIndex >= supply.tiles.length) {
@@ -154,6 +163,7 @@ export function createEngine(options: EngineOptions): Engine {
           ...snapshot.state,
           supply: { tiles: supply.tiles, drawIndex: supply.drawIndex + 1 },
           hands: { ...hands, [active.id]: [...hand, drawn] },
+          phase: 'awaitingPass',
         },
         log: [...snapshot.log, entry],
       };
@@ -162,57 +172,63 @@ export function createEngine(options: EngineOptions): Engine {
     }
 
     if (action.type === 'core.placeTile') {
-  const payload = action.payload as { coord: { q: number; r: number }; tileId: string };
-  const players = snapshot.state.players as Array<{ id: string; index: number; name?: string }>;
-  const activeIndex = snapshot.state.activePlayerIndex as number;
-  const active = players[activeIndex];
-  if (!active) {
-    return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'No players initialized' } };
-  }
-  // Validate actor authority first
-  if (action.actorId !== active.id) {
-    return { ok: false as const, error: { code: 'NOT_ACTIVE_PLAYER' as EngineErrorCode, message: 'Only active player may place' } };
-  }
-  // coord key stability is critical for determinism and replay.
-  const key = `${payload.coord.q},${payload.coord.r}`;
-  const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> };
-  if (board.cells.some((c) => c.key === key)) {
-    return { ok: false as const, error: { code: 'CELL_OCCUPIED' as EngineErrorCode, message: 'Target cell is occupied' } };
-  }
-  if (board.cells.some((c) => c.tile.tile.id === payload.tileId)) {
-    return { ok: false as const, error: { code: 'DUPLICATE_TILE_ID' as EngineErrorCode, message: 'Tile id already placed' } };
-  }
-  const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string }>>;
-      const hand: Array<{ id: string; kind: string }> = hands[active.id] ?? [];
-  const tileIdx = hand.findIndex((t) => t.id === payload.tileId);
-  if (tileIdx === -1) {
-    return { ok: false as const, error: { code: 'TILE_NOT_IN_HAND' as EngineErrorCode, message: 'Tile not in active hand' } };
-  }
-  const tileObj = hand[tileIdx]!;
-  const placed = { tile: tileObj, coord: payload.coord, placedBy: action.actorId, placedAtTurn: snapshot.state.turn as number };
-  const at = Date.now();
-  const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed tile ${tileObj.kind} at (${payload.coord.q},${payload.coord.r})` };
-  const next: GameSnapshot = {
-    ...snapshot,
-    revision: snapshot.revision + 1,
-    updatedAt: at,
-    state: {
-      ...snapshot.state,
-      board: { cells: [...board.cells, { key, tile: placed }] },
-      hands: { ...hands, [active.id]: hand.filter((_, i) => i !== tileIdx) },
-    },
-    log: [...snapshot.log, entry],
-  };
-  GameSnapshotSchema.parse(next);
-  return { ok: true as const, next, events: [entry] };
-}
+      if (phase !== 'awaitingPlacement') {
+        return { ok: false as const, error: { code: 'PLACEMENT_ALREADY_DONE' as EngineErrorCode, message: 'Placement already performed this turn' } };
+      }
+      const payload = action.payload as { coord: { q: number; r: number }; tileId: string };
+      // coord key stability is critical for determinism and replay.
+      const key = `${payload.coord.q},${payload.coord.r}`;
+      const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> };
+      if (board.cells.some((c) => c.key === key)) {
+        return { ok: false as const, error: { code: 'CELL_OCCUPIED' as EngineErrorCode, message: 'Target cell is occupied' } };
+      }
+      if (board.cells.some((c) => c.tile.tile.id === payload.tileId)) {
+        return { ok: false as const, error: { code: 'DUPLICATE_TILE_ID' as EngineErrorCode, message: 'Tile id already placed' } };
+      }
+      const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string }>>;
+      const hand = hands[active.id] ?? [];
+      const tileIdx = hand.findIndex((t) => t.id === payload.tileId);
+      if (tileIdx === -1) {
+        return { ok: false as const, error: { code: 'TILE_NOT_IN_HAND' as EngineErrorCode, message: 'Tile not in active hand' } };
+      }
+      const tileObj = hand[tileIdx]!;
+      const placed = { tile: tileObj, coord: payload.coord, placedBy: action.actorId, placedAtTurn: snapshot.state.turn as number };
+      const at = Date.now();
+      const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed tile ${tileObj.kind} at (${payload.coord.q},${payload.coord.r})` };
+      const next: GameSnapshot = {
+        ...snapshot,
+        revision: snapshot.revision + 1,
+        updatedAt: at,
+        state: {
+          ...snapshot.state,
+          board: { cells: [...board.cells, { key, tile: placed }] },
+          hands: { ...hands, [active.id]: hand.filter((_, i) => i !== tileIdx) },
+          phase: 'awaitingAction',
+        },
+        log: [...snapshot.log, entry],
+      };
+      GameSnapshotSchema.parse(next);
+      return { ok: true as const, next, events: [entry] };
+    }
+
+    // Generic phase gate for unknown/expansion actions
+    if (phase === 'awaitingPlacement') {
+      return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Only placement allowed at turn start' } };
+    }
+    if (phase === 'awaitingPass' && action.type !== 'core.passTurn') {
+      return { ok: false as const, error: { code: 'WRONG_TURN_PHASE' as EngineErrorCode, message: 'Only pass allowed now' } };
+    }
 
     for (const reducer of registries.reducers) {
       const res = reducer(snapshot, action);
       if (res) {
         const at = Date.now();
         const entry = { id: action.actionId, at, kind: action.type, message: 'Action applied' };
-        const next = { ...res.next, revision: snapshot.revision + 1, updatedAt: at, log: [...snapshot.log, entry] };
+        // If we were in awaitingAction and a non-pass action applied, move to awaitingPass.
+        const nextState = (phase === 'awaitingAction' && action.type !== 'core.passTurn')
+          ? { ...res.next.state, phase: 'awaitingPass' as const }
+          : res.next.state;
+        const next = { ...res.next, state: nextState, revision: snapshot.revision + 1, updatedAt: at, log: [...snapshot.log, entry] };
         GameSnapshotSchema.parse(next);
         return { ok: true as const, next, events: [entry, ...(res.events ?? [])] };
       }
@@ -222,5 +238,9 @@ export function createEngine(options: EngineOptions): Engine {
 
   return { registries, createInitialSnapshot, applyAction };
 }
+
+
+
+
 
 

@@ -47,3 +47,7 @@ Additional notes on 2026-02-09:
 * Session config now includes `seed`; server accepts optional `seed` and generates one if missing.
 * Client shows active hand, can draw tile, and place selected tile at input coords.
 * Notes: Determinism documented; no adjacency/scoring and no automatic turn end yet.
+
+### 2026-02-09 (turn phases)`r`n* Added explicit turn phases (awaitingPlacement, awaitingAction, awaitingPass) to core state and engine.`n* Enforced placement → optional action → pass sequencing with errors: WRONG_TURN_PHASE, PLACEMENT_ALREADY_DONE, ACTION_NOT_ALLOWED_IN_PHASE.`n* Server: added phase enforcement tests; placement test updated for initial hand.`n* Client: shows phase and enables/disables buttons by phase.`n* Core: initial session now deals 1 tile to each player to enable first placement.
+
+* Cleanup: removed obsolete temp files (tmp_edit_engine.ts, temp_proto_debug.txt).
