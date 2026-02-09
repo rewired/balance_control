@@ -23,12 +23,12 @@ export const economyExpansion = {
     // Deterministic ordering: appended to the end preserves base supply order.
     reg.registerHook?.('onSessionCreate', (snapshot: GameSnapshot) => {
       if (!(snapshot?.config?.enabledExpansions ?? []).includes('economy')) return snapshot as GameSnapshot;
-      const tiles = (snapshot.state as any).supply.tiles as Array<{ id: string; kind: string; production?: Record<string, number> }>;
+      const tiles = (snapshot.state as unknown as { supply: { tiles: Array<{ id: string; kind: string; production?: Record<string, number> }> } }).supply.tiles as Array<{ id: string; kind: string; production?: Record<string, number> }>;
       const nextTiles = [...tiles];
       for (let i = 1; i <= 5; i++) {
         nextTiles.push({ id: `econ-${i.toString().padStart(4,'0')}`, kind: 'economy-1', production: { economy: 1 } });
       }
-      const next: GameSnapshot = { ...snapshot, state: { ...snapshot.state, supply: { ...(snapshot.state as any).supply, tiles: nextTiles } } } as GameSnapshot;
+      const next: GameSnapshot = { ...snapshot, state: { ...snapshot.state, supply: { ...(snapshot.state as unknown as { supply: { tiles: Array<{ id: string; kind: string; production?: Record<string, number> }> } }).supply, tiles: nextTiles } } } as GameSnapshot;
       return next;
     });
 

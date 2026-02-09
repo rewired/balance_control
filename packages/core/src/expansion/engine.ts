@@ -4,6 +4,7 @@ import { GameSnapshotSchema } from '../protocol';
 import type { EngineRegistries, EngineOptions } from './types';
 import { buildEngineRegistries } from './registry';
 import { generateSupplyTiles } from '../supply';
+import { coordKey } from '../coord';
 
 export type EngineErrorCode =
   | 'UNKNOWN_ACTION'
@@ -54,6 +55,8 @@ export function createEngine(options: EngineOptions): Engine {
     }) as ZodTypeAny,
   });
   registries.actions.set('core.drawTile', { type: 'core.drawTile', payload: z.object({}).strict() as ZodTypeAny });
+  registries.actions.set('core.placeInfluence', { type: 'core.placeInfluence', payload: z.object({ coord: z.object({ q: z.number().int(), r: z.number().int() }), amount: z.literal(1) }) as ZodTypeAny });
+  registries.actions.set('core.moveInfluence', { type: 'core.moveInfluence', payload: z.object({ from: z.object({ q: z.number().int(), r: z.number().int() }), to: z.object({ q: z.number().int(), r: z.number().int() }), amount: z.literal(1) }) as ZodTypeAny });
 
     function createInitialSnapshot(
     config: (GameConfig & { sessionId: string }) & { players?: Array<{ id: string; name?: string }> }
@@ -92,6 +95,7 @@ export function createEngine(options: EngineOptions): Engine {
         board: { cells: [] },
         resources: { registry: resourcesRegistry },
         resourcesByPlayerId: pools,
+        influenceByCoord: {},
         supply: { tiles, drawIndex },
         hands: handsInit,
         extensions: {},
@@ -260,7 +264,71 @@ export function createEngine(options: EngineOptions): Engine {
       GameSnapshotSchema.parse(next);
       return { ok: true as const, next, events: [entry] };
     }
+    if (action.type === 'core.placeInfluence') {
+      if (phase !== 'awaitingAction') {
+        return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Influence placement only allowed after placement' } };
+      }
+      const payload = action.payload as { coord: { q: number; r: number }; amount: 1 };
+      const key = coordKey(payload.coord);
+      const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> };
+      if (!board.cells.some((c) => c.key === key)) {
+        return { ok: false as const, error: { code: 'TILE_NOT_FOUND' as EngineErrorCode, message: 'No tile at coord' } };
+      }
+      const infl = (snapshot.state as { influenceByCoord?: Record<string, Record<string, number>> }).influenceByCoord ?? {};
+      const tileMap = { ...(infl[key] ?? {}) };
+      const curr = tileMap[active.id] ?? 0;
+      if (curr + 1 > 3) {
+        return { ok: false as const, error: { code: 'INFLUENCE_CAP_REACHED' as EngineErrorCode, message: 'Cap 3 per tile reached' } };
+      }
+      tileMap[active.id] = curr + 1;
+      const at = Date.now();
+      const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed influence at (${payload.coord.q},${payload.coord.r})` };
+      const next: GameSnapshot = {
+        ...snapshot,
+        revision: snapshot.revision + 1,
+        updatedAt: at,
+        state: { ...snapshot.state, influenceByCoord: { ...infl, [key]: tileMap }, phase: 'awaitingPass' as const },
+        log: [...snapshot.log, entry],
+      };
+      GameSnapshotSchema.parse(next);
+      return { ok: true as const, next, events: [entry] };
+    }
 
+    if (action.type === 'core.moveInfluence') {
+      if (phase !== 'awaitingAction') {
+        return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Influence moving only allowed after placement' } };
+      }
+      const payload = action.payload as { from: { q: number; r: number }; to: { q: number; r: number }; amount: 1 };
+      const fromKey = coordKey(payload.from); const toKey = coordKey(payload.to);
+      const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> };
+      if (!board.cells.some((c) => c.key === fromKey) || !board.cells.some((c) => c.key === toKey)) {
+        return { ok: false as const, error: { code: 'TILE_NOT_FOUND' as EngineErrorCode, message: 'From/To coord missing tile' } };
+      }
+      const infl = (snapshot.state as { influenceByCoord?: Record<string, Record<string, number>> }).influenceByCoord ?? {};
+      const fromMap = { ...(infl[fromKey] ?? {}) };
+      const toMap = { ...(infl[toKey] ?? {}) };
+      const have = fromMap[active.id] ?? 0;
+      if (have < 1) {
+        return { ok: false as const, error: { code: 'INSUFFICIENT_INFLUENCE' as EngineErrorCode, message: 'Not enough influence to move' } };
+      }
+      const toCurr = toMap[active.id] ?? 0;
+      if (toCurr + 1 > 3) {
+        return { ok: false as const, error: { code: 'INFLUENCE_CAP_REACHED' as EngineErrorCode, message: 'Cap 3 per tile reached at destination' } };
+      }
+      fromMap[active.id] = have - 1;
+      toMap[active.id] = toCurr + 1;
+      const at = Date.now();
+      const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} moved influence from (${payload.from.q},${payload.from.r}) to (${payload.to.q},${payload.to.r})` };
+      const next: GameSnapshot = {
+        ...snapshot,
+        revision: snapshot.revision + 1,
+        updatedAt: at,
+        state: { ...snapshot.state, influenceByCoord: { ...infl, [fromKey]: fromMap, [toKey]: toMap }, phase: 'awaitingPass' as const },
+        log: [...snapshot.log, entry],
+      };
+      GameSnapshotSchema.parse(next);
+      return { ok: true as const, next, events: [entry] };
+    }
     // Generic phase gate for unknown/expansion actions
     if (phase === 'awaitingPlacement') {
       return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Only placement allowed at turn start' } };
@@ -288,6 +356,7 @@ export function createEngine(options: EngineOptions): Engine {
 
   return { registries, createInitialSnapshot, applyAction };
 }
+
 
 
 

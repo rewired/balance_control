@@ -244,3 +244,93 @@ Add entry:
 4. Exact commands
 
 ---
+
+Summary
+
+Current status: Tasks 0009 and 0010 are implemented end‑to‑end; 0011 is partially implemented. Build, tests, and lint all pass locally after minor fixes.
+Core highlights:
+Session-scoped resource registry with base ids: domestic, foreign, media. Map-based pools per player.
+Tiles carry production maps; passTurn resolves production deterministically (sorted by board key) and emits a resourceResolution event.
+Deterministic supply generator (seeded LCG) with stable ids/kinds. Hands + draw/placement validated.
+Strict turn phases: awaitingPlacement → awaitingAction → awaitingPass. Phase gates on placeTile/draw/pass enforce sequencing.
+Expansion (economy):
+@bc/exp-economy registers ResourceDef("economy") and appends 5 deterministic economy tiles via a generic onSessionCreate hook; no core special-casing.
+Influence (0011):
+Added state slot influenceByCoord and two actions core.placeInfluence and core.moveInfluence with cap 3, tile existence checks, and phase gates (count as the “optional action”; move to awaitingPass after).
+Missing: majority helper getTileMajority; client debug UI for influence; server/core tests covering influence; changelog entry for 0011.
+Notable decisions/deviations:
+Initial snapshot deals 1 tile to each player so turn 1 can place (documented determinism; helps demo flow).
+Board stored as JSON-stable array of { key, tile } where key is “q,r”; key stability called out in comments.
+Fixes made while verifying:
+Removed stray “\n” artifacts in core engine action registration/imports that broke TypeScript parse.
+Added influenceByCoord: {} to both initial state creators.
+Replaced any casts in economy expansion with typed unknown→as to satisfy lint; restored let in a test to keep semantics.
+Build/lint/test status after fixes: all green.
+Files Touched
+
+CHANGELOG.md
+packages/core/src/engine.ts
+packages/core/src/expansion/engine.ts
+packages/core/src/protocol/index.ts
+packages/core/src/supply.test.ts
+packages/exp-economy/src/index.ts
+Manual Verification Steps
+
+Core phases + turn:
+Run dev and create a session from client.
+Place the single starting hand tile, observe phase → awaitingAction.
+Click “Draw tile” (allowed only in awaitingAction), observe phase → awaitingPass.
+Click “Pass turn”, observe resourceResolution event and turn/active player advance.
+Economy resource (server-level):
+Create session with enabledExpansions: ["economy"] (see commands). Fetch snapshot to verify:
+resources.registry includes "economy"
+resourcesByPlayerId contains economy: 0 for each player
+Draw until an economy-1 tile appears, place it, then passTurn; verify passing player’s economy increases by +1.
+Note: client’s “Create session” currently posts enabledExpansions: []; for manual demo, temporarily send economy via curl (or adjust the request in apps/client/src/App.tsx).
+Influence (partially wired):
+Actions are registered and phase gated, but no UI and no tests yet. You can dispatch via Socket.IO with action types core.placeInfluence and core.moveInfluence to see state changes in influenceByCoord; pass remains required to end the turn.
+Exact Commands
+
+One-pass CI smoke on local machine:
+pnpm ci:smoke
+Build everything:
+pnpm -w -r build
+Run all tests:
+pnpm -w -r test
+Lint all packages:
+pnpm -w -r lint
+Dev servers (client + server concurrently):
+pnpm dev
+Preview a built client with server (static):
+pnpm --filter @bc/client build
+cross-env SERVE_STATIC=1 pnpm --filter @bc/server start
+Create session with economy enabled (server only, for manual check):
+PowerShell:
+$body = @{ enabledExpansions = @('economy'); players = @(@{ id='p1'; name='Player 1' }, @{ id='p2'; name='Player 2' }) } | ConvertTo-Json
+Invoke-RestMethod -Method POST -Uri http://localhost:3000/api/session -ContentType 'application/json' -Body $body
+curl:
+curl -s -X POST http://localhost:3000/api/session -H "Content-Type: application/json" -d "{ \"enabledExpansions\":[\"economy\"], \"players\":[{\"id\":\"p1\"},{\"id\":\"p2\"}] }"
+What Remains (0011 completion plan)
+
+Core:
+Add pure majority helper and export:
+File: packages/core/src/influence.ts
+Function: getTileMajority(state, coord) => { leaderId: string | null; isTie: boolean; max: number }
+Iterate players in players[] order for determinism; ignore tiles with no influence.
+Tests (packages/core):
+placeInfluence increases count; cap=3 enforced; moveInfluence atomic; errors: TILE_NOT_FOUND, INSUFFICIENT_INFLUENCE; phase enforcement; majority variations (leader / tie / none).
+Server:
+Minimal integration test: create session → draw/place → placeInfluence → assert influenceByCoord snapshot; optionally exercise moveInfluence.
+Client:
+Debug UI:
+List influence per tile (e.g., “(q,r): p1=2, p2=1”).
+Buttons: “Place influence” (awaitingAction), “Move influence” (awaitingAction).
+Majority readout for an input coord (compute via helper if exposed or mirror logic client-side temporarily).
+Changelog:
+Append explicit 0011 entry with actions, storage, invariants, and majority helper; note that no scoring/hotspots/noise are implemented.
+Minor cleanup:
+CHANGELOG “turn phases” section has visible CR/LF tokens in the text; reformat to plain markdown bullets (content is correct).
+If you want, I can finalize 0011 (helper, tests, UI) and tidy the CHANGELOG section next.
+
+---
+

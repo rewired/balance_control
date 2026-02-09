@@ -19,6 +19,7 @@ export function createInitialState(config: GameConfig & { sessionId: string }): 
       board: { cells: [] },
       resources: { registry: [] },
       resourcesByPlayerId: {},
+      influenceByCoord: {},
       supply: { tiles: [], drawIndex: 0 },
       hands: {},
       extensions: {},

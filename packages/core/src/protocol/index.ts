@@ -40,6 +40,9 @@ export const ServerErrorSchema = z.object({
     'PLACEMENT_ALREADY_DONE',
     'ACTION_NOT_ALLOWED_IN_PHASE',
     'DUPLICATE_RESOURCE_ID',
+    'TILE_NOT_FOUND',
+    'INFLUENCE_CAP_REACHED',
+    'INSUFFICIENT_INFLUENCE',
   ]),
   message: z.string(),
   details: z.unknown().optional(),
@@ -106,6 +109,9 @@ export const GameStateSchema = z.object({
   // Resource registry and per-player resource pools.
   resources: z.object({ registry: z.array(ResourceDefSchema) }),
   resourcesByPlayerId: z.record(z.string(), z.record(z.string(), z.number().int().nonnegative())).default({}),
+  // Influence markers per tile: key is CoordKey (q,r), value is per-player counts.
+  // Invariants: counts are integers in [0,3]; entries only for existing tiles.
+  influenceByCoord: z.record(z.string(), z.record(z.string(), z.number().int().min(0).max(3))).default({}),
   // Tile supply and per-player hands. Invariants:
   // - drawIndex in [0, tiles.length]
   // - a tile id exists in exactly one location (undrawn supply, some player's hand, or board)
