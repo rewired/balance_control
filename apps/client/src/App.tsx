@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+ï»¿import React, { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import type { ActionEnvelope, GameSnapshot, ServerError } from '@bc/core';
-import { getTileMajority } from '@bc/core';
+import { computeMajority } from '@bc/core';
 
 const HelloSchema = z.object({ version: z.string(), capabilities: z.array(z.string()) });
 
@@ -192,7 +192,7 @@ export function App() {
               <strong>Majority at (iq,ir):</strong>
               {(() => {
                 if (!snapshot) return null;
-                const res = getTileMajority((snapshot.state as { players: Array<{id:string}>, influenceByCoord?: Record<string, Record<string, number>> }), { q: Number(iq), r: Number(ir) });
+                const res = computeMajority((snapshot.state as any), { q: Number(iq), r: Number(ir) });
                 return <span> leader={res.leaderId ?? '(none)'} tie={String(res.isTie)} max={res.max}</span>;
               })()}
             </div>
@@ -234,7 +234,7 @@ export function App() {
         <h3>Event log (last 5)</h3>
         <ul>
           {snapshot?.log.slice(-5).map((e) => (
-            <li key={e.id}>{new Date(e.at).toLocaleTimeString()} • {e.kind} • {e.message}</li>
+            <li key={e.id}>{new Date(e.at).toLocaleTimeString()} ï¿½ {e.kind} ï¿½ {e.message}</li>
           ))}
         </ul>
       </section>
@@ -248,6 +248,8 @@ export function App() {
     </main>
   );
 }
+
+
 
 
 

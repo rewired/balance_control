@@ -122,3 +122,31 @@ Example turn (happy path):
 2) `core.placeTile` with `{ coord: { q, r } }` → tile placed, phase → `awaitingAction`.
 3) `core.placeInfluence` (or `core.moveInfluence`) → phase → `awaitingPass`.
 4) `core.passTurn` → next player, phase → `awaitingPlacement`.
+
+## Majority & Control (core service)
+The core exposes a single source of truth for majority and control, including lobbyist adjacency bonuses.
+
+```ts
+import { computeMajority, getControlLeaderId } from '@bc/core';
+
+// Detailed breakdown for a tile
+const res = computeMajority(state, { q, r });
+// res = {
+//   coordKey,
+//   baseByPlayerId,        // physical influence only
+//   lobbyBonusByPlayerId,  // +1 per adjacent controlled lobbyist
+//   totalByPlayerId,
+//   max,
+//   leaderId,              // null on tie or max==0
+//   isTie,
+// }
+
+// Control convenience: relative majority or null on tie/zero
+const leaderId = getControlLeaderId(state, { q, r });
+```
+
+Hotspots (focus tiles): when a hotspot becomes fully enclosed, call `computeMajority` on the hotspot coord and apply its effect only if `leaderId` is non‑null (ties/zero cancel), per Rules 9. Lobbyist bonuses are included automatically via adjacency.
+
+Committees (gatekeepers): check control on demand with `getControlLeaderId(state, coord)` before allowing actions that require committee ownership (e.g., influence formalization). A `null` leader means no one controls the committee this moment.
+
+Compatibility: the older helper `getTileMajority` now delegates to `computeMajority`, but new code should prefer `computeMajority`/`getControlLeaderId` directly.
