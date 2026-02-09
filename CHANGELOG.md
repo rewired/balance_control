@@ -34,3 +34,9 @@ Additional notes on 2026-02-09:
 * Server: extended `POST /api/session` to accept `players` (min 2, max 6); defaults to 2 placeholders when omitted; enforces `actorId` membership (`ACTOR_NOT_ALLOWED`).
 * Client: debug UI now shows players, highlights active player, displays turn number, and provides a “Pass turn” button.
 * Notes: Foundation for all future gameplay actions. Turn logic lives in core; server remains the authority and must not override it.
+### 2026-02-09 (board + placeTile)
+* Added axial hex coordinate model and board state in core (board.cells as JSON-stable entry array `{ key, tile }`).
+* Added core.placeTile action with validation (NOT_ACTIVE_PLAYER, CELL_OCCUPIED, DUPLICATE_TILE_ID) and deterministic placement metadata.
+* Client: debug board rendering, inputs for q/r/kind, and "Place tile" button using nanoid-generated tile ids.
+* Server: no extra rules; passes action envelope to core; existing actorId enforcement remains.
+* Notes: No adjacency/scoring yet; groundwork only. Coordinate key stability documented; core stays deterministic and pure.

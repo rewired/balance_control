@@ -1,5 +1,5 @@
 import { z, type ZodTypeAny } from 'zod';
-import type { ActionEnvelope, GameConfig, GameSnapshot, PlacedTile } from '../protocol';
+import type { ActionEnvelope, GameConfig, GameSnapshot } from '../protocol';
 import { GameSnapshotSchema } from '../protocol';
 import type { EngineRegistries, EngineOptions } from './types';
 import { buildEngineRegistries } from './registry';
@@ -9,9 +9,7 @@ export type EngineErrorCode =
   | 'VALIDATION_ERROR'
   | 'ACTION_SCHEMA_NOT_REGISTERED'
   | 'EXPANSION_NOT_ENABLED'
-  | 'NOT_ACTIVE_PLAYER'
-  | 'CELL_OCCUPIED'
-  | 'DUPLICATE_TILE_ID';
+  | 'NOT_ACTIVE_PLAYER' | 'CELL_OCCUPIED' | 'DUPLICATE_TILE_ID';
 
 export interface Engine {
   registries: EngineRegistries;
@@ -31,14 +29,7 @@ export function createEngine(options: EngineOptions): Engine {
 
   // Register core action schemas (immutable)
   registries.actions.set('core.noop', { type: 'core.noop', payload: z.unknown() as unknown as ZodTypeAny });
-  registries.actions.set('core.passTurn', { type: 'core.passTurn', payload: z.object({}).strict() as ZodTypeAny });
-  registries.actions.set('core.placeTile', {
-    type: 'core.placeTile',
-    payload: z.object({
-      coord: z.object({ q: z.number().int(), r: z.number().int() }),
-      tile: z.object({ id: z.string(), kind: z.string().min(1) }),
-    }) as ZodTypeAny,
-  });
+  registries.actions.set('core.passTurn', { type: 'core.passTurn', payload: z.object({}).strict() as ZodTypeAny });\n  registries.actions.set('core.placeTile', {\n    type: 'core.placeTile',\n    payload: z.object({\n      coord: z.object({ q: z.number().int(), r: z.number().int() }),\n      tile: z.object({ id: z.string(), kind: z.string().min(1) }),\n    }) as ZodTypeAny,\n  });
 
   function createInitialSnapshot(
     config: (GameConfig & { sessionId: string }) & { players?: Array<{ id: string; name?: string }> }
@@ -51,13 +42,7 @@ export function createEngine(options: EngineOptions): Engine {
       createdAt: now,
       updatedAt: now,
       config: { mode: 'hotseat', enabledExpansions: config.enabledExpansions ?? [] },
-      state: {
-        players,
-        activePlayerIndex: 0,
-        turn: 1,
-        board: { cells: [] },
-        extensions: {},
-      },
+      state: {\n        players,\n        activePlayerIndex: 0,\n        turn: 1,\n        board: { cells: {} },\n        extensions: {},\n      },
       log: [],
     };
     for (const id of snapshot.config.enabledExpansions) {
@@ -116,49 +101,8 @@ export function createEngine(options: EngineOptions): Engine {
         log: [...snapshot.log, entry],
       };
       GameSnapshotSchema.parse(next);
-      return { ok: true as const, next, events: [entry] };
-    }
-
-    if (action.type === 'core.placeTile') {
-      const payload = action.payload as { coord: { q: number; r: number }; tile: { id: string; kind: string } };
-      const players = snapshot.state.players as Array<{ id: string; index: number; name?: string }>;
-      const activeIndex = snapshot.state.activePlayerIndex as number;
-      const active = players[activeIndex];
-      if (!active) {
-        return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'No players initialized' } };
-      }
-      if (action.actorId !== active.id) {
-        return { ok: false as const, error: { code: 'NOT_ACTIVE_PLAYER' as EngineErrorCode, message: 'Only active player may place' } };
-      }
-      // coord key stability is critical for determinism and replay.
-      const key = `${payload.coord.q},${payload.coord.r}`;
-      const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> };
-      if (board.cells.some((c) => c.key === key)) {
-        return { ok: false as const, error: { code: 'CELL_OCCUPIED' as EngineErrorCode, message: 'Target cell is occupied' } };
-      }
-      // reject duplicate tile id anywhere on board
-      const exists = board.cells.some((c) => c.tile.tile.id === payload.tile.id);
-      if (exists) {
-        return { ok: false as const, error: { code: 'DUPLICATE_TILE_ID' as EngineErrorCode, message: 'Tile id already placed' } };
-      }
-      const placed = { tile: payload.tile, coord: payload.coord, placedBy: action.actorId, placedAtTurn: snapshot.state.turn as number };
-      const at = Date.now();
-      const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed tile ${payload.tile.kind} at (${payload.coord.q},${payload.coord.r})` };
-      const next: GameSnapshot = {
-        ...snapshot,
-        revision: snapshot.revision + 1,
-        updatedAt: at,
-        state: {
-          ...snapshot.state,
-          board: { cells: [...board.cells, { key, tile: placed }] },
-        },
-        log: [...snapshot.log, entry],
-      };
-      GameSnapshotSchema.parse(next);
-      return { ok: true as const, next, events: [entry] };
-    }
-
-    for (const reducer of registries.reducers) {
+      return { ok: true as const, next, events: [entry] };\n    }\n\n    if (action.type === 'core.placeTile') {\n      const payload = action.payload as { coord: { q: number; r: number }; tile: { id: string; kind: string } };\n      const players = snapshot.state.players as Array<{ id: string; index: number; name?: string }>;
+      const activeIndex = snapshot.state.activePlayerIndex as number;\n      const active = players[activeIndex];\n      if (!active) {\n        return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'No players initialized' } };\n      }\n      if (action.actorId !== active.id) {\n        return { ok: false as const, error: { code: 'NOT_ACTIVE_PLAYER' as EngineErrorCode, message: 'Only active player may place' } };\n      }\n      // coord key stability is critical for determinism and replay.\n      const key = ${payload.coord.q},;\n      const board = (snapshot.state.board as { cells: Record<string, any> });\n      if (board.cells[key]) {\n        return { ok: false as const, error: { code: 'CELL_OCCUPIED' as EngineErrorCode, message: 'Target cell is occupied' } };\n      }\n      // reject duplicate tile id anywhere on board\n      const exists = Object.values(board.cells).some((pt: any) => pt.tile.id === payload.tile.id);\n      if (exists) {\n        return { ok: false as const, error: { code: 'DUPLICATE_TILE_ID' as EngineErrorCode, message: 'Tile id already placed' } };\n      }\n      const placed = { tile: payload.tile, coord: payload.coord, placedBy: action.actorId, placedAtTurn: snapshot.state.turn as number };\n      const at = Date.now();\n      const entry = { id: action.actionId, at, kind: action.type, message: ${active.name ?? active.id} placed tile  at (,) };\n      const next: GameSnapshot = {\n        ...snapshot,\n        revision: snapshot.revision + 1,\n        updatedAt: at,\n        state: {\n          ...snapshot.state,\n          board: { cells: { ...board.cells, [key]: placed } },\n        },\n        log: [...snapshot.log, entry],\n      };\n      GameSnapshotSchema.parse(next);\n      return { ok: true as const, next, events: [entry] };\n    }\n\n    for (const reducer of registries.reducers) {
       const res = reducer(snapshot, action);
       if (res) {
         const at = Date.now();

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { z } from 'zod';
+import { nanoid } from 'nanoid';
 import type { ActionEnvelope, GameSnapshot, ServerError } from '@bc/core';
 
 const HelloSchema = z.object({ version: z.string(), capabilities: z.array(z.string()) });
@@ -14,9 +15,13 @@ export function App() {
   const [error, setError] = useState<ServerError | null>(null);
   const [enabled, setEnabled] = useState<string[]>([]);
 
-  // Connect socket once
+  // inputs for placement
+  const [q, setQ] = useState(0);
+  const [r, setR] = useState(0);
+  const [kind, setKind] = useState('generic');
+
   useEffect(() => {
-    const s = io(); // same origin in dev due to Vite proxy for /socket.io
+    const s = io();
     setSocket(s);
     s.on('connect', () => setConnected(true));
     s.on('disconnect', () => setConnected(false));
@@ -24,12 +29,11 @@ export function App() {
       const parsed = HelloSchema.safeParse(data);
       if (parsed.success) setHello(`${parsed.data.version} [${parsed.data.capabilities.join(', ')}]`);
     });
-    s.on('server:snapshot', (snap) => { setSnapshot(snap); setEnabled(snap.config.enabledExpansions); });
+    s.on('server:snapshot', (snap) => { setSnapshot(snap); setEnabled(snap.config.enabledExpansions); setError(null); });
     s.on('server:error', (e) => setError(e));
     return () => { s.close(); };
   }, []);
 
-  // Create a session via HTTP, then join over socket.
   async function createAndJoin() {
     setError(null);
     const res = await fetch('/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabledExpansions: [], players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }] }) });
@@ -40,28 +44,31 @@ export function App() {
 
   function dispatchNoop() {
     if (!sessionId) return;
-    const action: ActionEnvelope = {
-      sessionId,
-      actionId: Math.random().toString(36).slice(2),
-      type: 'core.noop',
-      payload: null,
-      actorId: 'hotseat',
-    };
+    const action: ActionEnvelope = { sessionId, actionId: nanoid(), type: 'core.noop', payload: null, actorId: 'hotseat' };
     socket?.emit('client:dispatch', action);
   }
 
   function passTurn() {
     if (!sessionId || !snapshot) return;
     const active = snapshot.state.players[snapshot.state.activePlayerIndex];
+    const action: ActionEnvelope = { sessionId, actionId: nanoid(), type: 'core.passTurn', payload: {}, actorId: active.id };
+    socket?.emit('client:dispatch', action);
+  }
+
+  function placeTile() {
+    if (!sessionId || !snapshot) return;
+    const active = snapshot.state.players[snapshot.state.activePlayerIndex];
     const action: ActionEnvelope = {
       sessionId,
-      actionId: Math.random().toString(36).slice(2),
-      type: 'core.passTurn',
-      payload: {},
-      actorId: active.id, // hotseat: always act as current active player
+      actionId: nanoid(),
+      type: 'core.placeTile',
+      payload: { coord: { q: Number(q), r: Number(r) }, tile: { id: nanoid(), kind } },
+      actorId: active.id,
     };
     socket?.emit('client:dispatch', action);
   }
+
+  const cells = snapshot ? snapshot.state.board.cells : [];
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', padding: 24 }}>
@@ -91,11 +98,24 @@ export function App() {
             <ul>
               {snapshot.state.players.map((p, i) => (
                 <li key={p.id} style={{ fontWeight: i === snapshot.state.activePlayerIndex ? 'bold' : 'normal' }}>
-                  {i === snapshot.state.activePlayerIndex ? '? ' : ''}{p.name ?? p.id}
+                  {i === snapshot.state.activePlayerIndex ? '-> ' : ''}{p.name ?? p.id}
                 </li>
               ))}
             </ul>
             <button onClick={passTurn}>Pass turn</button>
+            <h4>Board</h4>
+            <ul>
+              {cells.map((c) => (
+                <li key={c.key}>{c.key}: {c.tile.tile.kind} (id {c.tile.tile.id}) by {c.tile.placedBy} @ turn {c.tile.placedAtTurn}</li>
+              ))}
+              {cells.length === 0 && <li>(empty)</li>}
+            </ul>
+            <div>
+              <label>q: <input type="number" value={q} onChange={(e) => setQ(Number(e.target.value))} /></label>
+              <label style={{ marginLeft: 8 }}>r: <input type="number" value={r} onChange={(e) => setR(Number(e.target.value))} /></label>
+              <label style={{ marginLeft: 8 }}>kind: <input value={kind} onChange={(e) => setKind(e.target.value)} /></label>
+              <button style={{ marginLeft: 8 }} onClick={placeTile}>Place tile</button>
+            </div>
           </>
         ) : (
           <p>(no snapshot)</p>
