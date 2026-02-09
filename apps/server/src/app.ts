@@ -22,14 +22,15 @@ export function createApp() {
 
   const CreateSessionSchema = z.object({
     enabledExpansions: z.array(z.string()).optional(),
-    players: z.array(z.object({ id: z.string(), name: z.string().optional() })).min(2).max(6).optional(),\n    seed: z.string().optional(),
+    players: z.array(z.object({ id: z.string(), name: z.string().optional() })).min(2).max(6).optional(),    seed: z.string().optional(),
   });
   app.post('/api/session', (req, res) => {
     const parsed = CreateSessionSchema.safeParse(req.body ?? {});
     if (!parsed.success) {
       return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid body', details: parsed.error.flatten() });
     }
-    const requested = parsed.data.enabledExpansions ?? [];\n    const seed = parsed.data.seed ?? (await import('nanoid')).nanoid();
+    const requested = parsed.data.enabledExpansions ?? [];
+    const seed = parsed.data.seed ?? nanoid();
 
     // Players: strict validation above; generate defaults when omitted.
     const players = parsed.data.players && parsed.data.players.length > 0

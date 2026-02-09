@@ -55,8 +55,25 @@ export function App() {
     socket?.emit('client:dispatch', action);
   }
 
-  function drawTile() {\n    if (!sessionId || !snapshot) return;\n    const active = snapshot.state.players[snapshot.state.activePlayerIndex];\n    const action: ActionEnvelope = { sessionId, actionId: nanoid(), type: 'core.drawTile', payload: {}, actorId: active.id };\n    socket?.emit('client:dispatch', action);\n  }\n\n  function placeTile() {\n    if (!sessionId || !snapshot || !selectedTileId) return;\n    const active = snapshot.state.players[snapshot.state.activePlayerIndex];\n    const action: ActionEnvelope = {\n      sessionId, actionId: nanoid(), type: 'core.placeTile',\n      payload: { coord: { q: Number(q), r: Number(r) }, tileId: selectedTileId }, actorId: active.id\n    };\n    socket?.emit('client:dispatch', action);\n    // Optimistic clear selection; server is source of truth.
-    setSelectedTileId('');\n  }\n
+  function drawTile() {
+    if (!sessionId || !snapshot) return;
+    const active = snapshot.state.players[snapshot.state.activePlayerIndex];
+    const action: ActionEnvelope = { sessionId, actionId: nanoid(), type: 'core.drawTile', payload: {}, actorId: active.id };
+    socket?.emit('client:dispatch', action);
+  }
+
+  function placeTile() {
+    if (!sessionId || !snapshot || !selectedTileId) return;
+    const active = snapshot.state.players[snapshot.state.activePlayerIndex];
+    const action: ActionEnvelope = {
+      sessionId, actionId: nanoid(), type: 'core.placeTile',
+      payload: { coord: { q: Number(q), r: Number(r) }, tileId: selectedTileId }, actorId: active.id
+    };
+    socket?.emit('client:dispatch', action);
+    // Optimistic clear selection; server is source of truth.
+    setSelectedTileId('');
+  }
+
   const cells = snapshot ? snapshot.state.board.cells : [];
 
   return (
@@ -92,7 +109,34 @@ export function App() {
               ))}
             </ul>
             <button onClick={passTurn}>Pass turn</button>
-            <h4>Hand\ \(active\ player\)</h4>
+            <button style={{ marginLeft: 8 }} onClick={drawTile}>Draw tile</button>
+            <h4>Active hand</h4>
+            {(() => {
+              const active = snapshot.state.players[snapshot.state.activePlayerIndex];
+              const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string }>>;
+              const hand = hands[active.id] ?? [];
+              return (
+                <>
+                  <ul>
+                    {hand.map((t) => (
+                      <li key={t.id}>{t.kind} (id {t.id})</li>
+                    ))}
+                    {hand.length === 0 && <li>(empty)</li>}
+                  </ul>
+                  <div>
+                    <label>Select tile: 
+                      <select value={selectedTileId} onChange={(e) => setSelectedTileId(e.target.value)}>
+                        <option value="">-- choose --</option>
+                        {hand.map((t) => (
+                          <option key={t.id} value={t.id}>{t.kind} [{t.id}]</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </>
+              );
+            })()}
+            <h4>Board (debug)</h4>
             <ul>
               {cells.map((c) => (
                 <li key={c.key}>{c.key}: {c.tile.tile.kind} (id {c.tile.tile.id}) by {c.tile.placedBy} @ turn {c.tile.placedAtTurn}</li>
@@ -102,7 +146,7 @@ export function App() {
             <div>
               <label>q: <input type="number" value={q} onChange={(e) => setQ(Number(e.target.value))} /></label>
               <label style={{ marginLeft: 8 }}>r: <input type="number" value={r} onChange={(e) => setR(Number(e.target.value))} /></label>
-              <button style={{ marginLeft: 8 }} onClick={placeTile}>Place tile</button>
+              <button style={{ marginLeft: 8 }} onClick={placeTile} disabled={!selectedTileId}>Place tile</button>
             </div>
           </>
         ) : (
@@ -128,3 +172,5 @@ export function App() {
     </main>
   );
 }
+
+

@@ -55,14 +55,14 @@ export function createEngine(options: EngineOptions): Engine {
       revision: 0,
       createdAt: now,
       updatedAt: now,
-      config: { mode: 'hotseat', enabledExpansions: config.enabledExpansions ?? [], seed: (config as any).seed ?? 'seed' },
+      config: { mode: 'hotseat', enabledExpansions: config.enabledExpansions ?? [], seed: config.seed ?? 'seed' },
       state: {
         players,
         activePlayerIndex: 0,
         turn: 1,
         board: { cells: [] },
         // Supply and hands start empty hands; no auto-draw in MVP.
-        supply: { tiles: generateSupplyTiles({ seed: (config as any).seed ?? 'seed' }), drawIndex: 0 },
+        supply: { tiles: generateSupplyTiles({ seed: config.seed ?? 'seed' }), drawIndex: 0 },
         hands: Object.fromEntries(players.map((p) => [p.id, [] as Array<{ id: string; kind: string }>])),
         extensions: {},
       },
@@ -139,11 +139,11 @@ export function createEngine(options: EngineOptions): Engine {
         return { ok: false as const, error: { code: 'SUPPLY_EMPTY' as EngineErrorCode, message: 'No tiles left to draw' } };
       }
       const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string }>>;
-      const hand = hands[active.id] ?? [];
+      const hand: Array<{ id: string; kind: string }> = hands[active.id] ?? [];
       if (hand.length >= 5) {
         return { ok: false as const, error: { code: 'HAND_FULL' as EngineErrorCode, message: 'Hand limit reached' } };
       }
-      const drawn = supply.tiles[supply.drawIndex];
+      const drawn = supply.tiles[supply.drawIndex]!;
       const at = Date.now();
       const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} drew a tile` };
       const next: GameSnapshot = {
@@ -183,12 +183,12 @@ export function createEngine(options: EngineOptions): Engine {
     return { ok: false as const, error: { code: 'DUPLICATE_TILE_ID' as EngineErrorCode, message: 'Tile id already placed' } };
   }
   const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string }>>;
-  const hand = hands[active.id] ?? [];
+      const hand: Array<{ id: string; kind: string }> = hands[active.id] ?? [];
   const tileIdx = hand.findIndex((t) => t.id === payload.tileId);
   if (tileIdx === -1) {
     return { ok: false as const, error: { code: 'TILE_NOT_IN_HAND' as EngineErrorCode, message: 'Tile not in active hand' } };
   }
-  const tileObj = hand[tileIdx];
+  const tileObj = hand[tileIdx]!;
   const placed = { tile: tileObj, coord: payload.coord, placedBy: action.actorId, placedAtTurn: snapshot.state.turn as number };
   const at = Date.now();
   const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed tile ${tileObj.kind} at (${payload.coord.q},${payload.coord.r})` };
@@ -222,3 +222,5 @@ export function createEngine(options: EngineOptions): Engine {
 
   return { registries, createInitialSnapshot, applyAction };
 }
+
+

@@ -30,7 +30,7 @@ export function generateSupplyTiles(cfg: SupplyGenConfig): { id: string; kind: s
   const tiles = [] as { id: string; kind: string }[];
   for (let i = 0; i < n; i++) {
     const r = rnd();
-    const kind = kinds[r % kinds.length];
+    const kind = kinds[r % kinds.length]!;
     const id = `t${(i + 1).toString().padStart(4, '0')}`;
     tiles.push({ id, kind });
   }

@@ -1,4 +1,4 @@
-﻿// Flat ESLint config for the monorepo
+// Flat ESLint config for the monorepo
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import reactPlugin from 'eslint-plugin-react';
@@ -31,5 +31,9 @@ export default [
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn'
     }
-  }
+  },
+  {
+    files: ['**/*.test.ts', '**/*.test.tsx'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' }
+  },
 ];

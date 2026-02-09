@@ -9,7 +9,7 @@ export function createInitialState(config: GameConfig & { sessionId: string }): 
     revision: 0,
     createdAt: now,
     updatedAt: now,
-    config: { mode: 'hotseat', enabledExpansions: config.enabledExpansions ?? [] },
+    config: { mode: 'hotseat', enabledExpansions: config.enabledExpansions ?? [], seed: (config.seed ?? 'seed') },
     state: { players: [], activePlayerIndex: 0, turn: 1, board: { cells: [] }, supply: { tiles: [], drawIndex: 0 }, hands: {}, extensions: {} },
     log: [],
   };
@@ -34,3 +34,4 @@ export function applyAction(current: GameSnapshot, action: ActionEnvelope): Appl
   };
   return { ok: true, next, events: [entry] };
 }
+

@@ -23,12 +23,20 @@ describe('server placeTile integration', () => {
     socket.emit('client:join', { sessionId: res.body.sessionId });
     const first = await once<GameSnapshot>(socket, 'server:snapshot');
 
-    // Draw 1 tile then place from hand\n    socket.emit('client:dispatch', { sessionId: first.sessionId, actionId: 'draw1', type: 'core.drawTile', payload: {}, actorId: 'p1' });\n    const afterDraw = await once<GameSnapshot>(socket, 'server:snapshot');\n    const hand = (afterDraw.state.hands as any)['p1'] as Array<{ id: string; kind: string }>;\n    const tileId = hand[0].id;\n    const action = { sessionId: first.sessionId, actionId: 'place1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 }, tileId }, actorId: 'p1' };
+    // Draw 1 tile
+    socket.emit('client:dispatch', { sessionId: first.sessionId, actionId: 'draw1', type: 'core.drawTile', payload: {}, actorId: 'p1' });
+    const afterDraw = await once<GameSnapshot>(socket, 'server:snapshot');
+    const hand = (afterDraw.state.hands as any)['p1'] as Array<{ id: string; kind: string }>;
+    const tileId = hand[0].id;
+
+    // Place from hand
+    const action = { sessionId: first.sessionId, actionId: 'place1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 }, tileId }, actorId: 'p1' };
     socket.emit('client:dispatch', action);
     const next = await once<GameSnapshot>(socket, 'server:snapshot');
 
     expect(next.revision).toBeGreaterThan(first.revision);
-    const cell = next.state.board.cells.find((c: { key: string; tile: { tile: { id: string; kind: string }; placedBy: string; placedAtTurn: number } }) => c.key === '0,0'); expect(cell?.tile.tile.id).toBe('t1');
+    const cell = next.state.board.cells.find((c: { key: string; tile: { tile: { id: string; kind: string }; placedBy: string; placedAtTurn: number } }) => c.key === '0,0');
+    expect(cell?.tile.tile.id).toBe(tileId);
 
     socket.close();
     await new Promise<void>((r) => httpServer.close(() => r()));

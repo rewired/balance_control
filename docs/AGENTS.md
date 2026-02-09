@@ -37,6 +37,28 @@ You are an engineering agent. Your job is to implement tasks exactly as describe
 - Client is a renderer + input device.
 - Core engine must be deterministic. If randomness is required, use a seeded RNG owned by server/core.
 
+### 6)Temporary file hygiene (MANDATORY)
+
+- Any temporary, intermediate, or helper files created during code generation
+  (e.g. scratch files, throwaway scripts, debug outputs, migration helpers,
+  one-off transforms, copied experiments, or staging artifacts)
+  **must be removed before task completion**.
+
+- The final codebase must not contain:
+  - unused files
+  - orphaned scripts
+  - temporary generators
+  - debug-only helpers
+  - abandoned refactors
+  - commented-out experiments used only during development
+
+- If a temporary file was necessary to implement the task:
+  - it must either be **deleted**, or
+  - explicitly justified and documented if it is kept (rare case).
+
+- Leaving temporary files behind is considered a **task failure**.
+  The repository must be left in a **clean, intentional, production-ready state**.
+
 ## Repository structure (target)
 
 - `apps/client` — React + Vite UI
