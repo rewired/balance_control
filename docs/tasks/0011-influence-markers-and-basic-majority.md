@@ -1,4 +1,4 @@
-# `docs/tasks/0011-influence-markers-and-basic-majority.md`
+﻿# `docs/tasks/0011-influence-markers-and-basic-majority.md`
 
 ## Title
 
@@ -136,6 +136,7 @@ If your phase machine isn’t implemented yet, implement the minimal phase check
 Add a pure function:
 
 * `getTileMajority(state, coord) => { leaderId: string | null; isTie: boolean; max: number }`
+Note (later phase): Prefer `computeMajority(state, coord)` and `getControlLeaderId(state, coord)`; `getTileMajority` now delegates to the central service.
 
 Rules:
 
@@ -257,7 +258,7 @@ Expansion (economy):
 @bc/exp-economy registers ResourceDef("economy") and appends 5 deterministic economy tiles via a generic onSessionCreate hook; no core special-casing.
 Influence (0011):
 Added state slot influenceByCoord and two actions core.placeInfluence and core.moveInfluence with cap 3, tile existence checks, and phase gates (count as the “optional action”; move to awaitingPass after).
-Missing: majority helper getTileMajority; client debug UI for influence; server/core tests covering influence; changelog entry for 0011.
+Missing: majority helper getTileMajority; client debug UI for influence; server/core tests covering influence; changelog entry for 0011. (later replaced by computeMajority).
 Notable decisions/deviations:
 Initial snapshot deals 1 tile to each player so turn 1 can place (documented determinism; helps demo flow).
 Board stored as JSON-stable array of { key, tile } where key is “q,r”; key stability called out in comments.
@@ -316,6 +317,7 @@ Core:
 Add pure majority helper and export:
 File: packages/core/src/influence.ts
 Function: getTileMajority(state, coord) => { leaderId: string | null; isTie: boolean; max: number }
+Note: In current core, use `computeMajority` for totals and `getControlLeaderId` for relative control.
 Iterate players in players[] order for determinism; ignore tiles with no influence.
 Tests (packages/core):
 placeInfluence increases count; cap=3 enforced; moveInfluence atomic; errors: TILE_NOT_FOUND, INSUFFICIENT_INFLUENCE; phase enforcement; majority variations (leader / tie / none).
@@ -338,6 +340,7 @@ Summary
 
 Implemented Task 0011 core pieces and finished integration:
 Core: added pure majority helper getTileMajority(state, coord) with deterministic player-order iteration.
+Core (later): replaced by `computeMajority`/`getControlLeaderId` as the single logic source.
 Core: influence actions are already registered and phase‑gated; added focused tests for influence and majority.
 Client: extended debug UI to list influence per tile, place/move influence, and show majority for a coord.
 Economy: kept unchanged; no core special-casing (0010 remains valid).

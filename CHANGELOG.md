@@ -7,7 +7,7 @@
 - Core: added packages/core/src/majority.test.ts covering zero, leader, tie, lobbyist bonus, and stacking cases.
 - Client: replaced majority readout to use computeMajority instead of getTileMajority.
 - Docs: README now documents how to use computeMajority/getControlLeaderId for hotspots and committees.
-
+- Docs: rules (001 Brennpunkte) add an implementation hint to call computeMajority when enclosed.
 ### 2026-02-09
 
 * **Added:** pnpm monorepo scaffold with `@bc/client`, `@bc/server`, and `@bc/core`
@@ -80,4 +80,6 @@ Additional notes on 2026-02-09:
 - Added test-only expansion package @bc/exp-test-measures proving the Core Measure API (createMeasureState/takeMeasure/playMeasure/resetMeasureRoundFlags) works plug-and-play without changing core.
 - Added contract test verifying engine-level round reset clears per-round measure flags for extensions with a measures state.
 - Server: kept expansion list production-only (no test expansion wired in server loader).
+
+
 

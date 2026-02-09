@@ -1,4 +1,4 @@
-# BALANCE // CONTROL
+﻿# BALANCE // CONTROL
 ## Regelwerk – Version 1.0.9 (Politik-Flavour · finale Terminologie)
 
 ---
@@ -229,6 +229,21 @@ Zwei Spieler haben jeweils 2 Einfluss, ein dritter Spieler 1 Einfluss.
 
 ---
 
+
+### Implementierungshinweis (Core)
+
+- Wenn ein Brennpunkt vollständig umschlossen ist, ermittle die Kontrolle mit dem zentralen Service. Lobbyisten‑Boni werden automatisch durch Adjazenz berücksichtigt.
+
+```ts
+import { computeMajority } from '@bc/core';
+
+const res = computeMajority(state, hotspotCoord);
+if (res.leaderId) {
+  // Effekt für res.leaderId anwenden
+} else {
+  // Gleichstand oder kein Einfluss → kein Effekt
+}
+```
 ## 10. Rundenabrechnung
 
 ### 10.1 Ressort-Erträge

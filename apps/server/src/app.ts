@@ -1,9 +1,9 @@
-import express from 'express';
+﻿import express from 'express';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
-import { ActionEnvelopeSchema, GameSnapshotSchema, createEngine } from '@bc/core';
+import { ActionEnvelopeSchema, GameSnapshotSchema, createEngine, getControlLeaderId, computeMajority } from '@bc/core';
 import type { ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData } from '@bc/core';
 import { loadAvailableExpansions } from './expansions';
 
@@ -18,6 +18,20 @@ export function createApp() {
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true });
+  });
+
+  // Example debug endpoint: control check on demand using core.getControlLeaderId
+  // GET /api/control?sessionId=...&q=0&r=0
+  app.get('/api/control', (req, res) => {
+    const ControlQuerySchema = z.object({ sessionId: z.string(), q: z.coerce.number().int(), r: z.coerce.number().int() });
+    const parsed = ControlQuerySchema.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid query', details: parsed.error.flatten() });
+    const snap = sessionStore.get(parsed.data.sessionId);
+    if (!snap) return res.status(404).json({ code: 'SESSION_NOT_FOUND', message: 'Session not found' });
+    const leaderId = getControlLeaderId(snap.state as any, { q: parsed.data.q, r: parsed.data.r });
+    // For richer debug info you may also inspect computeMajority totals
+    const majority = computeMajority(snap.state as any, { q: parsed.data.q, r: parsed.data.r });
+    return res.json({ leaderId, max: majority.max, isTie: majority.isTie, totalByPlayerId: majority.totalByPlayerId });
   });
 
   const CreateSessionSchema = z.object({
@@ -115,3 +129,6 @@ export function createApp() {
 
   return { app, httpServer, io };
 }
+
+
+
