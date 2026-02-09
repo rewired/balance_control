@@ -20,11 +20,8 @@ describe('core turns and passTurn', () => {
 
   it('core.passTurn advances active player and increments turn; wraps around', () => {
     let snap = engine.createInitialSnapshot({ sessionId: 's1', mode: 'hotseat', enabledExpansions: [], players: players.slice(0, 2) });
-    // p1 must place then draw then pass
-    const hand1 = ((snap.state.hands as any)['p1'] as Array<{id:string;kind:string}>);
-    const tile1 = hand1[0].id;
-    let res = engine.applyAction(snap, { sessionId: 's1', actionId: 'p1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 }, tileId: tile1 }, actorId: 'p1' } as any);
-    expect(res.ok).toBe(true);
+    // p1: draw -> place -> one action (or skip) -> pass\n    let res = engine.applyAction(snap, { sessionId: 's1', actionId: 'd1', type: 'core.drawTile', payload: {}, actorId: 'p1' });\n    expect(res.ok).toBe(true); if (res.ok) snap = res.next;\n    res = engine.applyAction(snap, { sessionId: 's1', actionId: 'p1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 } }, actorId: 'p1' } as any);\n    expect(res.ok).toBe(true); if (res.ok) snap = res.next;\n    // skip optional action by moving directly to pass not allowed; place a no-op influence if possible
+    res = engine.applyAction(snap, { sessionId: 's1', actionId: 'i1', type: 'core.placeInfluence', payload: { coord: { q: 0, r: 0 }, amount: 1 }, actorId: 'p1' } as any);\n    expect(res.ok).toBe(true); if (res.ok) snap = res.next;\n    res = engine.applyAction(snap, { sessionId: 's1', actionId: 'a1', type: 'core.passTurn', payload: {}, actorId: 'p1' });
     if (res.ok) snap = res.next;
     res = engine.applyAction(snap, { sessionId: 's1', actionId: 'd1', type: 'core.drawTile', payload: {}, actorId: 'p1' });
     expect(res.ok).toBe(true);
@@ -36,11 +33,7 @@ describe('core turns and passTurn', () => {
       expect(snap.state.activePlayerIndex).toBe(1);
       expect(snap.state.turn).toBe(2);
     }
-    // p2 place -> draw -> pass
-    const hand2 = ((snap.state.hands as any)['p2'] as Array<{id:string;kind:string}>);
-    const tile2 = hand2[0].id;
-    res = engine.applyAction(snap, { sessionId: 's1', actionId: 'p2', type: 'core.placeTile', payload: { coord: { q: 1, r: 0 }, tileId: tile2 }, actorId: 'p2' } as any);
-    expect(res.ok).toBe(true);
+    // p2: draw -> place -> action -> pass\n    res = engine.applyAction(snap, { sessionId: 's1', actionId: 'd2', type: 'core.drawTile', payload: {}, actorId: 'p2' });\n    expect(res.ok).toBe(true); if (res.ok) snap = res.next;\n    res = engine.applyAction(snap, { sessionId: 's1', actionId: 'p2', type: 'core.placeTile', payload: { coord: { q: 1, r: 0 } }, actorId: 'p2' } as any);\n    expect(res.ok).toBe(true); if (res.ok) snap = res.next;\n    res = engine.applyAction(snap, { sessionId: 's1', actionId: 'i2', type: 'core.placeInfluence', payload: { coord: { q: 1, r: 0 }, amount: 1 }, actorId: 'p2' } as any);\n    expect(res.ok).toBe(true); if (res.ok) snap = res.next;\n    res = engine.applyAction(snap, { sessionId: 's1', actionId: 'a2', type: 'core.passTurn', payload: {}, actorId: 'p2' });
     if (res.ok) snap = res.next;
     res = engine.applyAction(snap, { sessionId: 's1', actionId: 'd2', type: 'core.drawTile', payload: {}, actorId: 'p2' });
     expect(res.ok).toBe(true);
