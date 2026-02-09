@@ -18,7 +18,7 @@ export function App() {
   // inputs for placement
   const [q, setQ] = useState(0);
   const [r, setR] = useState(0);
-  const [kind, setKind] = useState('generic');
+  const [selectedTileId, setSelectedTileId] = useState<string>('');
 
   useEffect(() => {
     const s = io();
@@ -55,19 +55,8 @@ export function App() {
     socket?.emit('client:dispatch', action);
   }
 
-  function placeTile() {
-    if (!sessionId || !snapshot) return;
-    const active = snapshot.state.players[snapshot.state.activePlayerIndex];
-    const action: ActionEnvelope = {
-      sessionId,
-      actionId: nanoid(),
-      type: 'core.placeTile',
-      payload: { coord: { q: Number(q), r: Number(r) }, tile: { id: nanoid(), kind } },
-      actorId: active.id,
-    };
-    socket?.emit('client:dispatch', action);
-  }
-
+  function drawTile() {\n    if (!sessionId || !snapshot) return;\n    const active = snapshot.state.players[snapshot.state.activePlayerIndex];\n    const action: ActionEnvelope = { sessionId, actionId: nanoid(), type: 'core.drawTile', payload: {}, actorId: active.id };\n    socket?.emit('client:dispatch', action);\n  }\n\n  function placeTile() {\n    if (!sessionId || !snapshot || !selectedTileId) return;\n    const active = snapshot.state.players[snapshot.state.activePlayerIndex];\n    const action: ActionEnvelope = {\n      sessionId, actionId: nanoid(), type: 'core.placeTile',\n      payload: { coord: { q: Number(q), r: Number(r) }, tileId: selectedTileId }, actorId: active.id\n    };\n    socket?.emit('client:dispatch', action);\n    // Optimistic clear selection; server is source of truth.
+    setSelectedTileId('');\n  }\n
   const cells = snapshot ? snapshot.state.board.cells : [];
 
   return (
@@ -103,7 +92,7 @@ export function App() {
               ))}
             </ul>
             <button onClick={passTurn}>Pass turn</button>
-            <h4>Board</h4>
+            <h4>Hand\ \(active\ player\)</h4>
             <ul>
               {cells.map((c) => (
                 <li key={c.key}>{c.key}: {c.tile.tile.kind} (id {c.tile.tile.id}) by {c.tile.placedBy} @ turn {c.tile.placedAtTurn}</li>
@@ -113,7 +102,6 @@ export function App() {
             <div>
               <label>q: <input type="number" value={q} onChange={(e) => setQ(Number(e.target.value))} /></label>
               <label style={{ marginLeft: 8 }}>r: <input type="number" value={r} onChange={(e) => setR(Number(e.target.value))} /></label>
-              <label style={{ marginLeft: 8 }}>kind: <input value={kind} onChange={(e) => setKind(e.target.value)} /></label>
               <button style={{ marginLeft: 8 }} onClick={placeTile}>Place tile</button>
             </div>
           </>

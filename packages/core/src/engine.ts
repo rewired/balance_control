@@ -10,7 +10,7 @@ export function createInitialState(config: GameConfig & { sessionId: string }): 
     createdAt: now,
     updatedAt: now,
     config: { mode: 'hotseat', enabledExpansions: config.enabledExpansions ?? [] },
-    state: { players: [], activePlayerIndex: 0, turn: 1, board: { cells: [] }, extensions: {} },
+    state: { players: [], activePlayerIndex: 0, turn: 1, board: { cells: [] }, supply: { tiles: [], drawIndex: 0 }, hands: {}, extensions: {} },
     log: [],
   };
 }

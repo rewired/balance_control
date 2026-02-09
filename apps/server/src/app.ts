@@ -22,14 +22,14 @@ export function createApp() {
 
   const CreateSessionSchema = z.object({
     enabledExpansions: z.array(z.string()).optional(),
-    players: z.array(z.object({ id: z.string(), name: z.string().optional() })).min(2).max(6).optional(),
+    players: z.array(z.object({ id: z.string(), name: z.string().optional() })).min(2).max(6).optional(),\n    seed: z.string().optional(),
   });
   app.post('/api/session', (req, res) => {
     const parsed = CreateSessionSchema.safeParse(req.body ?? {});
     if (!parsed.success) {
       return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid body', details: parsed.error.flatten() });
     }
-    const requested = parsed.data.enabledExpansions ?? [];
+    const requested = parsed.data.enabledExpansions ?? [];\n    const seed = parsed.data.seed ?? (await import('nanoid')).nanoid();
 
     // Players: strict validation above; generate defaults when omitted.
     const players = parsed.data.players && parsed.data.players.length > 0
@@ -52,7 +52,7 @@ export function createApp() {
     }
 
     const sessionId = nanoid();
-    const snapshot = engine.createInitialSnapshot({ sessionId, mode: 'hotseat', enabledExpansions: requested, players });
+    const snapshot = engine.createInitialSnapshot({ sessionId, mode: 'hotseat', enabledExpansions: requested, seed, players });
     sessionStore.set(sessionId, snapshot);
     res.json({ sessionId });
   });

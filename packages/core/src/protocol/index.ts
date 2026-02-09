@@ -27,6 +27,9 @@ export const ServerErrorSchema = z.object({
     'NOT_ACTIVE_PLAYER',
     'CELL_OCCUPIED',
     'DUPLICATE_TILE_ID',
+    'SUPPLY_EMPTY',
+    'HAND_FULL',
+    'TILE_NOT_IN_HAND',
   ]),
   message: z.string(),
   details: z.unknown().optional(),
@@ -44,6 +47,8 @@ export type EventLogEntry = z.infer<typeof EventLogEntrySchema>;
 export const GameConfigSchema = z.object({
   mode: z.literal('hotseat'),
   enabledExpansions: z.array(z.string()),
+  // Deterministic seed for supply generation. Part of snapshot config to ensure replayability.
+  seed: z.string(),
 });
 export type GameConfig = z.infer<typeof GameConfigSchema>;
 
@@ -78,10 +83,16 @@ export const GameStateSchema = z.object({
   players: z.array(PlayerSchema),
   activePlayerIndex: z.number().int().nonnegative(),
   turn: z.number().int().positive(),
-  // Board stored as JSON-stable Record keyed by "q,r" for deterministic lookups and replay stability.
+  // Board stored as JSON-stable entry array for deterministic lookups and replay stability.
   board: z.object({
     cells: z.array(z.object({ key: z.string(), tile: PlacedTileSchema })),
   }),
+  // Tile supply and per-player hands. Invariants:
+  // - drawIndex in [0, tiles.length]
+  // - a tile id exists in exactly one location (undrawn supply, some player's hand, or board)
+  // - hands exist for all players
+  supply: z.object({ tiles: z.array(TileSchema), drawIndex: z.number().int().nonnegative() }),
+  hands: z.record(z.string(), z.array(TileSchema)),
   // Expansion-owned state slots.
   extensions: z.record(z.string(), z.unknown()),
 });

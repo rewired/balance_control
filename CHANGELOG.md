@@ -40,3 +40,10 @@ Additional notes on 2026-02-09:
 * Client: debug board rendering, inputs for q/r/kind, and "Place tile" button using nanoid-generated tile ids.
 * Server: no extra rules; passes action envelope to core; existing actorId enforcement remains.
 * Notes: No adjacency/scoring yet; groundwork only. Coordinate key stability documented; core stays deterministic and pure.
+### 2026-02-09 (supply + hands)
+* Added deterministic tile supply (seeded) and per-player hands to core state.
+* Added `core.drawTile` with validation (`SUPPLY_EMPTY`, `HAND_FULL`).
+* Updated `core.placeTile` to place from hand by `tileId` (`TILE_NOT_IN_HAND`, `CELL_OCCUPIED`, `DUPLICATE_TILE_ID`).
+* Session config now includes `seed`; server accepts optional `seed` and generates one if missing.
+* Client shows active hand, can draw tile, and place selected tile at input coords.
+* Notes: Determinism documented; no adjacency/scoring and no automatic turn end yet.

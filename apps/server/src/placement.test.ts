@@ -23,7 +23,7 @@ describe('server placeTile integration', () => {
     socket.emit('client:join', { sessionId: res.body.sessionId });
     const first = await once<GameSnapshot>(socket, 'server:snapshot');
 
-    const action = { sessionId: first.sessionId, actionId: 'place1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 }, tile: { id: 't1', kind: 'generic' } }, actorId: 'p1' };
+    // Draw 1 tile then place from hand\n    socket.emit('client:dispatch', { sessionId: first.sessionId, actionId: 'draw1', type: 'core.drawTile', payload: {}, actorId: 'p1' });\n    const afterDraw = await once<GameSnapshot>(socket, 'server:snapshot');\n    const hand = (afterDraw.state.hands as any)['p1'] as Array<{ id: string; kind: string }>;\n    const tileId = hand[0].id;\n    const action = { sessionId: first.sessionId, actionId: 'place1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 }, tileId }, actorId: 'p1' };
     socket.emit('client:dispatch', action);
     const next = await once<GameSnapshot>(socket, 'server:snapshot');
 
