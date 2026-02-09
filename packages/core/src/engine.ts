@@ -1,4 +1,4 @@
-﻿// Minimal engine scaffolding; rules intentionally not implemented.
+// Minimal engine scaffolding; rules intentionally not implemented.
 // Deterministic and side-effect free helpers.
 import type { ActionEnvelope, GameConfig, GameSnapshot } from './protocol';
 
@@ -10,7 +10,7 @@ export function createInitialState(config: GameConfig & { sessionId: string }): 
     createdAt: now,
     updatedAt: now,
     config: { mode: 'hotseat', enabledExpansions: config.enabledExpansions ?? [] },
-    state: { extensions: {} },
+    state: { players: [], activePlayerIndex: 0, turn: 1, extensions: {} },
     log: [],
   };
 }

@@ -28,3 +28,9 @@ Additional notes on 2026-02-09:
 * Added Socket.IO wiring: server hello, snapshot broadcast, error handling.
 * Updated client to create/join session and dispatch `core.noop`.
 * Notes: server remains authoritative; no game rules implemented; state is expansion-ready.
+### 2026-02-09 (turn system)
+* Added player and turn system to core (`players`, `activePlayerIndex`, `turn`).
+* Added first base-game action `core.passTurn` with validation (only active player may act) and deterministic turn advance.
+* Server: extended `POST /api/session` to accept `players` (min 2, max 6); defaults to 2 placeholders when omitted; enforces `actorId` membership (`ACTOR_NOT_ALLOWED`).
+* Client: debug UI now shows players, highlights active player, displays turn number, and provides a “Pass turn” button.
+* Notes: Foundation for all future gameplay actions. Turn logic lives in core; server remains the authority and must not override it.
