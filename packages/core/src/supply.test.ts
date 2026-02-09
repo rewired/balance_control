@@ -7,7 +7,7 @@ const players = [ { id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }
 describe('supply + draw + place from hand', () => {
   it('draw moves from supply to hand and increments index', () => {
     const engine = createEngine({ expansions: [] });
-    const snapMutable = engine.createInitialSnapshot({ sessionId: 's1', mode: 'hotseat', enabledExpansions: [], seed: 'seed-1', players });
+    let snapMutable = engine.createInitialSnapshot({ sessionId: 's1', mode: 'hotseat', enabledExpansions: [], seed: 'seed-1', players });
     // Start: awaitingPlacement; place first tile to allow draw
     const first = ((snapMutable.state.hands as any)['p1'] as Array<{ id: string; kind: string }>)[0].id;
     let r = engine.applyAction(snapMutable, { sessionId: 's1', actionId: 'p0', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 }, tileId: first }, actorId: 'p1' } as any);
@@ -28,7 +28,7 @@ describe('supply + draw + place from hand', () => {
 
   it('placeTile requires tileId in hand and removes it when placed', () => {
     const engine = createEngine({ expansions: [] });
-    const snapMutable = engine.createInitialSnapshot({ sessionId: 's1', mode: 'hotseat', enabledExpansions: [], seed: 'seed-xyz', players });
+    let snapMutable = engine.createInitialSnapshot({ sessionId: 's1', mode: 'hotseat', enabledExpansions: [], seed: 'seed-xyz', players });
     const hand = (snapMutable.state.hands as any)['p1'] as Array<{ id: string; kind: string }>;
     const tileId = hand[0].id;
     const place: ActionEnvelope = { sessionId: 's1', actionId: 'p1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 }, tileId }, actorId: 'p1' } as any;
@@ -53,7 +53,7 @@ describe('supply + draw + place from hand', () => {
 
   it('errors: supply empty and hand full and tile not in hand', () => {
     const engine = createEngine({ expansions: [] });
-    const snapMutable = engine.createInitialSnapshot({ sessionId: 's1', mode: 'hotseat', enabledExpansions: [], seed: 'tiny', players });
+    let snapMutable = engine.createInitialSnapshot({ sessionId: 's1', mode: 'hotseat', enabledExpansions: [], seed: 'tiny', players });
 
     // place to reach awaitingAction then simulate empty supply
     const tid = (((snapMutable.state.hands as any)['p1'] as Array<{id:string;kind:string}>)[0]?.id);

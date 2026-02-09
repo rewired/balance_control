@@ -8,7 +8,7 @@ describe('influence + majority', () => {
     const engine = createEngine({ expansions: [] });
     const snap = engine.createInitialSnapshot({ sessionId: 's', mode: 'hotseat', enabledExpansions: [], seed: 's', players });
     const tileId = (snap.state.hands as any)['p1'][0].id as string;
-    const r = engine.applyAction(snap, { sessionId: 's', actionId: 'p', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 }, tileId }, actorId: 'p1' } as any);
+    let r = engine.applyAction(snap, { sessionId: 's', actionId: 'p', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 }, tileId }, actorId: 'p1' } as any);
     if (!r.ok) throw new Error('place failed');
     // place influence -> awaitingPass
     r = engine.applyAction(r.next, { sessionId: 's', actionId: 'i1', type: 'core.placeInfluence', payload: { coord: { q: 0, r: 0 }, amount: 1 }, actorId: 'p1' } as any);
@@ -27,7 +27,7 @@ describe('influence + majority', () => {
     // Seed snapshot with 3 influence for p1 on existing tile and be at awaitingAction
     const snap = engine.createInitialSnapshot({ sessionId: 's', mode: 'hotseat', enabledExpansions: [], seed: 's', players });
     const tileId = (snap.state.hands as any)['p1'][0].id as string;
-    const r = engine.applyAction(snap, { sessionId: 's', actionId: 'p', type: 'core.placeTile', payload: { coord: { q: 5, r: 5 }, tileId }, actorId: 'p1' } as any); if (!r.ok) throw new Error('place');
+    let r = engine.applyAction(snap, { sessionId: 's', actionId: 'p', type: 'core.placeTile', payload: { coord: { q: 5, r: 5 }, tileId }, actorId: 'p1' } as any); if (!r.ok) throw new Error('place');
     // Manually seed influence to cap (tests may directly prepare state for edge checks)
     const st: any = r.next.state;
     st.influenceByCoord['5,5'] = { ...(st.influenceByCoord['5,5'] ?? {}), p1: 3 };
@@ -41,7 +41,7 @@ describe('influence + majority', () => {
     const engine = createEngine({ expansions: [] });
     const snap = engine.createInitialSnapshot({ sessionId: 's', mode: 'hotseat', enabledExpansions: [], seed: 's', players });
     const tileId = (snap.state.hands as any)['p1'][0].id as string;
-    const r = engine.applyAction(snap, { sessionId: 's', actionId: 'p', type: 'core.placeTile', payload: { coord: { q: 7, r: 7 }, tileId }, actorId: 'p1' } as any);
+    let r = engine.applyAction(snap, { sessionId: 's', actionId: 'p', type: 'core.placeTile', payload: { coord: { q: 7, r: 7 }, tileId }, actorId: 'p1' } as any);
     if (!r.ok) throw new Error('place failed');
     let maj = getTileMajority(r.next.state, { q: 7, r: 7 });
     expect(maj).toEqual({ leaderId: null, isTie: false, max: 0 });

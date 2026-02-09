@@ -45,6 +45,8 @@ describe('effects expiry and blocking', () => {
     r = engine.applyAction(r.next, { sessionId: 's', actionId: 'd3', type: 'core.drawTile', payload: {}, actorId: 'p3' } as any); if (!r.ok) throw new Error('p3 draw');
     r = engine.applyAction(r.next, { sessionId: 's', actionId: 'x3', type: 'core.passTurn', payload: {}, actorId: 'p3' } as any); if (!r.ok) throw new Error('p3 pass');
     s = r.next; // p1 active again; effect should expire in passTurn tick
+    // Phase model requires placement before draw; set awaitingAction for this targeted expiry test
+    (s.state as any).phase = 'awaitingAction';
     // Now p1 can draw again
     const ok = engine.applyAction(s, { sessionId: 's', actionId: 'd4', type: 'core.drawTile', payload: {}, actorId: 'p1' } as any);
     expect(ok.ok).toBe(true);

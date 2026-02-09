@@ -53,9 +53,19 @@ export function createApp() {
     }
 
     const sessionId = nanoid();
-    const snapshot = engine.createInitialSnapshot({ sessionId, mode: 'hotseat', enabledExpansions: requested, seed, players });
-    sessionStore.set(sessionId, snapshot);
-    res.json({ sessionId });
+    try {
+      const snapshot = engine.createInitialSnapshot({ sessionId, mode: 'hotseat', enabledExpansions: requested, seed, players });
+      sessionStore.set(sessionId, snapshot);
+      res.json({ sessionId });
+    } catch (err) {
+      const message = (err as Error)?.message ?? '';
+      if (message.startsWith('DUPLICATE_RESOURCE_ID:')) {
+        const id = message.split(':')[1] ?? '';
+        return res.status(400).json({ code: 'DUPLICATE_RESOURCE_ID', message: `Duplicate resource id: ${id}`, details: { id } });
+      }
+      // Fallback: surface as validation error to keep contract simple
+      return res.status(400).json({ code: 'VALIDATION_ERROR', message: message || 'Failed to create session' });
+    }
   });
 
   const httpServer = createServer(app);

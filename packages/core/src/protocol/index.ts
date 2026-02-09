@@ -1,4 +1,4 @@
-// Protocol primitives and Zod schemas for runtime validation.
+﻿// Protocol primitives and Zod schemas for runtime validation.
 // Keep this package free of any server/client dependencies.
 import { z } from 'zod';
 
@@ -43,6 +43,7 @@ export const ServerErrorSchema = z.object({
     'TILE_NOT_FOUND',
     'INFLUENCE_CAP_REACHED',
     'INSUFFICIENT_INFLUENCE',
+    'HOOK_REJECTED',
   ]),
   message: z.string(),
   details: z.unknown().optional(),
@@ -168,6 +169,7 @@ export interface ClientToServerEvents {
 
 export type InterServerEvents = Record<string, never>;
 export type SocketData = Record<string, never>;
+
 
 
 

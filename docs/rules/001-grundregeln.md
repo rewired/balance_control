@@ -136,7 +136,9 @@ Ein Zug besteht aus **zwei Phasen**.
 - Ein Politikfeld ziehen.
 - Angrenzend platzieren.
 - Nicht platzierbare Felder offen ablegen und weiterziehen.
-
+- Politikfelder dürfen ausschließlich auf freie Tischfläche gelegt werden.
+- Das Platzieren eines Politikfeldes auf einem anderen Politikfeld ist nicht erlaubt, sofern ein Effekt dies nicht ausdrücklich erlaubt.
+- Marker, Auflagen, Einfluss, Countdown-Marker oder ähnliche Spielmaterialien gelten nicht als Politikfelder und unterliegen dieser Beschränkung nicht.
 ---
 
 ### 7.2 Politische Handlung (genau eine)
