@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from 'zod';
 import type { ActionEnvelope, GameSnapshot } from '@bc/core';
 import type { MeasureState } from '@bc/core';
@@ -84,3 +85,4 @@ export const economyExpansion = {
     });
   },
 };
+

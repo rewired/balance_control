@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
@@ -234,7 +235,7 @@ export function App() {
         <h3>Event log (last 5)</h3>
         <ul>
           {snapshot?.log.slice(-5).map((e) => (
-            <li key={e.id}>{new Date(e.at).toLocaleTimeString()} � {e.kind} � {e.message}</li>
+            <li key={e.id}>{new Date(e.at).toLocaleTimeString()} ? {e.kind} ? {e.message}</li>
           ))}
         </ul>
       </section>
@@ -248,6 +249,7 @@ export function App() {
     </main>
   );
 }
+
 
 
 

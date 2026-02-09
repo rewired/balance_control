@@ -1,6 +1,5 @@
 import type { GameState, HexCoord } from './protocol';
 import { computeMajority } from './majority';
-import { coordKey } from './coord';
 
 export type RoundSettlementResult = {
   payoutsByPlayerId: Record<string, Record<string, number>>;
@@ -75,10 +74,37 @@ export function settleRound(state: GameState): { nextState: GameState; result: R
     }
     nextPools[p.id] = out;
   }
-  const nextNoise: Record<string, number> = { ...(state as any).noise ?? zeroResources(state) };
+  const nextNoise: Record<string, number> = { ...state.noise ?? zeroResources(state) };
   for (const [r, v] of Object.entries(noiseDelta)) {
     nextNoise[r] = Math.max(0, (nextNoise[r] ?? 0) + (v | 0));
   }
-  const nextState: GameState = { ...(state as any), resourcesByPlayerId: nextPools, noise: nextNoise };
+  const nextState: GameState = ({ ...state, resourcesByPlayerId: nextPools, noise: nextNoise } as GameState);
   return { nextState, result: { payoutsByPlayerId, noiseDelta } };
 }
+
+
+
+
+import { GameSnapshotSchema } from './protocol';
+import type { GameSnapshot } from './protocol';
+import type { EngineRegistries } from './expansion/types';
+
+export function finalizeGame(snapshot: GameSnapshot, registries: EngineRegistries): GameSnapshot {
+  const at = Date.now();
+  const { nextState } = settleRound(snapshot.state);
+  const entry = { id: 'finalize-' + at, at, kind: 'core.finalizeGame', message: 'Final settlement at game end' };
+  let next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: nextState, log: [...snapshot.log, entry] } as GameSnapshot;
+  const onEnd = registries.hooks.onGameEnd ?? [];
+  for (const h of onEnd) {
+    try {
+      const maybe = h(next);
+      if (maybe && typeof maybe === 'object' && 'state' in maybe) {
+        next = GameSnapshotSchema.parse(maybe) as GameSnapshot;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return GameSnapshotSchema.parse(next) as GameSnapshot;
+}
+

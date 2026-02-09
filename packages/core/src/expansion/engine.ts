@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { z, type ZodTypeAny } from 'zod';
 import { pruneExpiredEffects } from '../effects';
 import { resetMeasureRoundFlags } from '../measures/helpers';
@@ -124,7 +125,7 @@ export function createEngine(options: EngineOptions): Engine {
       try {
         const maybe = (h as any)(snapshot);
         if (maybe && typeof maybe === 'object' && 'state' in maybe) snapshot = GameSnapshotSchema.parse(maybe);
-      } catch {}
+      } catch { void 0; }
     }
     return snapshot;
   }
@@ -139,12 +140,12 @@ export function createEngine(options: EngineOptions): Engine {
       return { ok: false as const, error: { code: 'EXPANSION_NOT_ENABLED' as EngineErrorCode, message: `Expansion not enabled: ${req}` } };
     }
 
-    for (const h of registries.hooks.onBeforeActionValidate) { try { (h as any)(snapshot, action); } catch {} }
-    for (const h of registries.hooks.onBeforeActionValidate) { try { (h as any)(snapshot, action); } catch {} }
+    for (const h of registries.hooks.onBeforeActionValidate) { try { (h as any)(snapshot, action); } catch { void 0; } }
+    for (const h of registries.hooks.onBeforeActionValidate) { try { (h as any)(snapshot, action); } catch { void 0; } }
     const parsed = (schema as { payload: ZodTypeAny }).payload.safeParse(action.payload);
     if (!parsed.success) { return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'Invalid payload', details: parsed.error.flatten() } } ; }
     // Allow validation hooks to reject
-    for (const h of registries.hooks.onValidateAction) { try { const res = (h as any)(snapshot, action); if (res && typeof res === 'object' && (res as any).reject) { const rej = (res as any).reject as { code?: string; message?: string }; return { ok: false as const, error: { code: 'HOOK_REJECTED' as EngineErrorCode, message: rej.message ?? 'Rejected by hook' } }; } } catch {} }
+    for (const h of registries.hooks.onValidateAction) { try { const res = (h as any)(snapshot, action); if (res && typeof res === 'object' && (res as any).reject) { const rej = (res as any).reject as { code?: string; message?: string }; return { ok: false as const, error: { code: 'HOOK_REJECTED' as EngineErrorCode, message: rej.message ?? 'Rejected by hook' } }; } } catch { void 0; } }
     const plist = (snapshot.state as any).players as Array<{ id: string; name?: string }>
     const activeIndex = (snapshot.state as any).activePlayerIndex as number;
     const active = plist[activeIndex] ?? { id: 'unknown' };
@@ -176,15 +177,15 @@ export function createEngine(options: EngineOptions): Engine {
       // Engine ticks: prune effects, reset per-round flags when wrapping
       let newState: any = { ...snapshot.state, resourcesByPlayerId: { ...pools, [active.id]: current }, activePlayerIndex: nextIndex, activePlayerId: plist[nextIndex]?.id, phase: 'awaitingPlacement', round: nextRound, turnInRound: nextTurnInRound, roundStartPlayerIndex, turn: ((snapshot.state as any).turn as number) + 1 };
       if (nextIndex === roundStartPlayerIndex) {
-        try { const ex: any = { ...(newState.extensions as any) }; for (const k of Object.keys(ex)) { const ext: any = ex[k]; if (ext && typeof ext === 'object' && 'measures' in ext && ext.measures) { ext.measures = resetMeasureRoundFlags(ext.measures as any); } } newState.extensions = ex; } catch {}
-        try { const settled = settleRound(newState as any); newState = settled.nextState as any; } catch {}
+        try { const ex: any = { ...(newState.extensions as any) }; for (const k of Object.keys(ex)) { const ext: any = ex[k]; if (ext && typeof ext === 'object' && 'measures' in ext && ext.measures) { ext.measures = resetMeasureRoundFlags(ext.measures as any); } } newState.extensions = ex; } catch { void 0; }
+        try { const settled = settleRound(newState as any); newState = settled.nextState as any; } catch { void 0; }
       }
       const pruned = pruneExpiredEffects(newState, plist[nextIndex]?.id);
       const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: pruned, log: [...snapshot.log, passEntry] };
-      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch { void 0; } }
       GameSnapshotSchema.parse(next);
-      const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
-      let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
+      const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch { void 0; } }
+      let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch { void 0; } }
       return { ok: true as const, next: finalNext, events: [passEntry, ...extraEvents] };
     }
 
@@ -204,18 +205,18 @@ export function createEngine(options: EngineOptions): Engine {
       if (!pending) {
         const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} found no placeable tile (supply empty)` };
         const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...(snapshot.state as any), supply: { ...supply, drawIndex }, pendingPlacementTile: null, phase: 'awaitingAction' }, log: [...snapshot.log, entry] } as GameSnapshot;
-        for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+        for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch { void 0; } }
         GameSnapshotSchema.parse(next);
-        const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
-        let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
+        const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch { void 0; } }
+        let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch { void 0; } }
         return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
       } else {
         const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} drew a tile for placement` };
         const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...(snapshot.state as any), supply: { ...supply, drawIndex }, pendingPlacementTile: pending }, log: [...snapshot.log, entry] } as GameSnapshot;
-        for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+        for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch { void 0; } }
         GameSnapshotSchema.parse(next);
-        const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
-        let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
+        const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch { void 0; } }
+        let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch { void 0; } }
         return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
       }
     }
@@ -234,10 +235,10 @@ export function createEngine(options: EngineOptions): Engine {
       const at = Date.now();
       const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed tile ${pending.kind} at (${payload.coord.q},${payload.coord.r})` };
       const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...(snapshot.state as any), board: { cells: [...board.cells, { key, tile: placed }] }, pendingPlacementTile: null, phase: 'awaitingAction' }, log: [...snapshot.log, entry] } as GameSnapshot;
-      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch { void 0; } }
       GameSnapshotSchema.parse(next);
-      const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
-      let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
+      const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch { void 0; } }
+      let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch { void 0; } }
       return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
     }
 
@@ -255,10 +256,10 @@ export function createEngine(options: EngineOptions): Engine {
       const at = Date.now();
       const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed influence at (${payload.coord.q},${payload.coord.r})` };
       const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...(snapshot.state as any), influenceByCoord: inf, phase: 'awaitingPass' }, log: [...snapshot.log, entry] } as GameSnapshot;
-      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch { void 0; } }
       GameSnapshotSchema.parse(next);
-      const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
-      let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
+      const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch { void 0; } }
+      let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch { void 0; } }
       return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
     }
 
@@ -275,10 +276,10 @@ export function createEngine(options: EngineOptions): Engine {
       fromPer[active.id] = fromCur - 1; if (fromPer[active.id] === 0) { delete fromPer[active.id]; } toPer[active.id] = toCur + 1; inf[fromKey] = fromPer; inf[toKey] = toPer;
       const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} moved influence from (${payload.from.q},${payload.from.r}) to (${payload.to.q},${payload.to.r})` };
       const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...(snapshot.state as any), influenceByCoord: inf, phase: 'awaitingPass' }, log: [...snapshot.log, entry] } as GameSnapshot;
-      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch { void 0; } }
       GameSnapshotSchema.parse(next);
-      const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
-      let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
+      const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch { void 0; } }
+      let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch { void 0; } }
       return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
     }
 
@@ -291,10 +292,10 @@ export function createEngine(options: EngineOptions): Engine {
         const entry = { id: action.actionId, at, kind: action.type, message: 'Action applied' };
         const nextState = (phase === 'awaitingAction' && action.type !== 'core.passTurn') ? { ...res.next.state, phase: 'awaitingPass' as const } : res.next.state;
         const next = { ...res.next, state: nextState, revision: snapshot.revision + 1, updatedAt: at, log: [...snapshot.log, entry] } as GameSnapshot;
-        for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+        for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch { void 0; } }
         GameSnapshotSchema.parse(next);
-        const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
-        let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
+        const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch { void 0; } }
+        let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch { void 0; } }
         return { ok: true as const, next: finalNext, events: [entry, ...(res.events ?? []), ...extraEvents] };
       }
     }
@@ -304,6 +305,9 @@ export function createEngine(options: EngineOptions): Engine {
 
   return { registries, createInitialSnapshot, applyAction };
 }
+
+
+
 
 
 

@@ -5,10 +5,10 @@ import { createEngine } from './index';
 const testExpansion: ExpansionModule = {
   id: 'test', version: '0.0.0', register(reg) {
     reg.registerStateInitializer(() => ({ calls: [] as string[] }));
-    reg.registerHook('onBeforeActionValidate', (snap: any, act: any) => { const arr = (snap.state.extensions.test.calls as string[]); arr.push('before'); });
-    reg.registerHook('onValidateAction', (snap: any, act: any) => { (snap.state.extensions.test.calls as string[]).push('validate'); if (act.type === 'core.drawTile') return { reject: { code: 'HOOK_REJECTED', message: 'blocked by test' } }; });
-    reg.registerHook('onApplyAction', (snap: any, act: any) => { (snap.state.extensions.test.calls as string[]).push('apply'); });
-    reg.registerHook('onAfterAction', (snap: any, act: any) => { (snap.state.extensions.test.calls as string[]).push('after'); return []; });
+    reg.registerHook('onBeforeActionValidate', (snap: any) => { const arr = (snap.state.extensions.test.calls as string[]); arr.push('before'); });
+    reg.registerHook('onValidateAction', (snap: any, action: any) => { (snap.state.extensions.test.calls as string[]).push('validate'); if (action.type === 'core.drawTile') return { reject: { code: 'HOOK_REJECTED', message: 'blocked by test' } }; });
+    reg.registerHook('onApplyAction', (snap: any) => { (snap.state.extensions.test.calls as string[]).push('apply'); });
+    reg.registerHook('onAfterAction', (snap: any) => { (snap.state.extensions.test.calls as string[]).push('after'); return []; });
     reg.registerHook('onSnapshot', (snap: any) => { (snap.state.extensions.test.calls as string[]).push('snapshot'); return snap; });
   }
 };
@@ -16,7 +16,7 @@ const testExpansion: ExpansionModule = {
 describe('hook pipeline', () => {
   it('calls hooks in order and can reject', () => {
     const engine = createEngine({ expansions: [testExpansion] });
-    let snap = engine.createInitialSnapshot({ sessionId: 's', mode: 'hotseat', enabledExpansions: ['test'], seed: 's', players: [{id:'p1'},{id:'p2'}] });
+    const snap = engine.createInitialSnapshot({ sessionId: 's', mode: 'hotseat', enabledExpansions: ['test'], seed: 's', players: [{id:'p1'},{id:'p2'}] });
 
     // draw should be blocked by hook at awaitingPlacement
     const blocked = engine.applyAction(snap, { sessionId: 's', actionId: 'd0', type: 'core.drawTile', payload: {}, actorId: 'p1' } as any);
@@ -35,3 +35,6 @@ describe('hook pipeline', () => {
     expect(calls.includes('validate')).toBe(true);
   });
 });
+
+
+

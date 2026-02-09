@@ -13,6 +13,7 @@ export function createEmptyRegistries(): EngineRegistries {
       onApplyAction: [],
       onAfterAction: [],
       onSnapshot: [],
+      onGameEnd: [],
     },
     stateInitializers: new Map<string, () => unknown>(),
     resourceDefProviders: new Map<string, ResourceDef[]>(),
@@ -47,5 +48,7 @@ export function buildEngineRegistries(opts: EngineOptions): EngineRegistries {
   }
   return registries;
 }
+
+
 
 

@@ -13,7 +13,8 @@ export type HookName =
   | 'onValidateAction'
   | 'onApplyAction'
   | 'onAfterAction'
-  | 'onSnapshot';
+  | 'onSnapshot'
+  | 'onGameEnd';
 
 export type HookHandler = (...args: unknown[]) => unknown;
 
@@ -54,3 +55,4 @@ export interface EngineOptions {
   isTileGloballyPlaceable?: (state: import('../protocol').GameState, tile: { id: string; kind: string; production: Record<string, number> }) => boolean;
   isPlacementLegal?: (state: import('../protocol').GameState, tile: { id: string; kind: string; production: Record<string, number> }, coord: { q: number; r: number }) => boolean;
 }
+
