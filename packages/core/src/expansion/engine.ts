@@ -143,6 +143,7 @@ export function createEngine(options: EngineOptions): Engine {
     if (!parsed.success) { return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'Invalid payload', details: parsed.error.flatten() } } ; }
     // Allow validation hooks to reject
     for (const h of registries.hooks.onValidateAction) { try { const res = (h as any)(snapshot, action); if (res && typeof res === 'object' && (res as any).reject) { const rej = (res as any).reject as { code?: string; message?: string }; return { ok: false as const, error: { code: 'HOOK_REJECTED' as EngineErrorCode, message: rej.message ?? 'Rejected by hook' } }; } } catch {} }
+    const plist = (snapshot.state as any).players as Array<{ id: string; name?: string }>
     const activeIndex = (snapshot.state as any).activePlayerIndex as number;
     const active = plist[activeIndex] ?? { id: 'unknown' };
     if (action.actorId !== active.id && action.type !== 'core.noop') {
