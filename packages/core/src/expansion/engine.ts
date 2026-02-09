@@ -5,6 +5,7 @@ import type { ActionEnvelope, GameConfig, GameSnapshot, PlacedTile, ResourceDef 
 import { GameSnapshotSchema } from '../protocol';
 import type { EngineRegistries, EngineOptions } from './types';
 import { buildEngineRegistries } from './registry';
+import { generateSupplyTiles } from '../supply';
 import { isAdjacentToAny } from '../coord';
 
 export type EngineErrorCode =
@@ -16,8 +17,6 @@ export type EngineErrorCode =
   | 'CELL_OCCUPIED'
   | 'DUPLICATE_TILE_ID'
   | 'SUPPLY_EMPTY'
-  | 'HAND_FULL'
-  | 'TILE_NOT_IN_HAND'
   | 'WRONG_TURN_PHASE'
   | 'PLACEMENT_ALREADY_DONE'
   | 'ACTION_NOT_ALLOWED_IN_PHASE'
@@ -55,18 +54,8 @@ export function createEngine(options: EngineOptions): Engine {
   registries.actions.set('core.passTurn', { type: 'core.passTurn', payload: z.object({}).strict() as ZodTypeAny });
   registries.actions.set('core.placeTile', { type: 'core.placeTile', payload: z.object({ coord: z.object({ q: z.number().int(), r: z.number().int() }) }).strict() as ZodTypeAny });
   registries.actions.set('core.drawTile', { type: 'core.drawTile', payload: z.object({}).strict() as ZodTypeAny });
-  registries.actions.set('core.placeInfluence', {
-    type: 'core.placeInfluence',
-    payload: z.object({ coord: z.object({ q: z.number().int(), r: z.number().int() }), amount: z.literal(1) }) as ZodTypeAny,
-  });
-  registries.actions.set('core.moveInfluence', {
-    type: 'core.moveInfluence',
-    payload: z.object({
-      from: z.object({ q: z.number().int(), r: z.number().int() }),
-      to: z.object({ q: z.number().int(), r: z.number().int() }),
-      amount: z.literal(1),
-    }) as ZodTypeAny,
-  });
+  registries.actions.set('core.placeInfluence', { type: 'core.placeInfluence', payload: z.object({ coord: z.object({ q: z.number().int(), r: z.number().int() }), amount: z.literal(1) }) as ZodTypeAny });
+  registries.actions.set('core.moveInfluence', { type: 'core.moveInfluence', payload: z.object({ from: z.object({ q: z.number().int(), r: z.number().int() }), to: z.object({ q: z.number().int(), r: z.number().int() }), amount: z.literal(1) }) as ZodTypeAny });
 
   function createInitialSnapshot(
     config: (GameConfig & { sessionId: string }) & { players?: Array<{ id: string; name?: string }> }
@@ -74,20 +63,13 @@ export function createEngine(options: EngineOptions): Engine {
     const now = Date.now();
     const players = (config.players ?? []).map((p, i) => ({ id: p.id, name: p.name, index: i }));
     const tiles = generateSupplyTiles({ seed: config.seed ?? 'seed' });
-    const handsInit: Record<string, Array<{ id: string; kind: string; production: Record<string, number> }>> =
-      Object.fromEntries(players.map((p) => [p.id, []]));
-    let drawIndex = 0;
-    for (const p of players) { const t = tiles[drawIndex]; if (t !== undefined) { (handsInit[p.id]!).push(t); drawIndex++; } }
     const resourcesRegistry: ResourceDef[] = (() => {
       const m = new Map<string, ResourceDef>();
       for (const r of baseResources) m.set(r.id, r);
       for (const expId of (config.enabledExpansions ?? [])) {
         const defs = registries.resourceDefProviders.get(expId) ?? [];
         for (const d of defs) {
-          if (m.has(d.id)) {
-            // Strict duplicate guard: session creation must fail deterministically
-            throw new Error(`DUPLICATE_RESOURCE_ID:${d.id}`);
-          }
+          if (m.has(d.id)) throw new Error(`DUPLICATE_RESOURCE_ID:${d.id}`);
           m.set(d.id, d);
         }
       }
@@ -112,8 +94,8 @@ export function createEngine(options: EngineOptions): Engine {
         resources: { registry: resourcesRegistry },
         resourcesByPlayerId: pools,
         influenceByCoord: {},
-        supply: { tiles, drawIndex },
-        hands: handsInit,
+        supply: { tiles, drawIndex: 0, openDiscard: [] },
+        pendingPlacementTile: null,
         effects: [],
         extensions: {},
       },
@@ -130,60 +112,86 @@ export function createEngine(options: EngineOptions): Engine {
     const req = (schema as { requiresExpansionId?: string }).requiresExpansionId; if (req && !snapshot.config.enabledExpansions.includes(req)) { return { ok: false as const, error: { code: 'EXPANSION_NOT_ENABLED' as EngineErrorCode, message: `Expansion not enabled: ${req}` } }; }
     for (const h of registries.hooks.onBeforeActionValidate) { try { (h as any)(snapshot, action); } catch {} }
     const parsed = (schema as { payload: ZodTypeAny }).payload.safeParse(action.payload); if (!parsed.success) { return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'Invalid payload', details: parsed.error.flatten() } }; }
-    if (action.type === 'core.noop') { const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: 'No-op applied' }; const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, log: [...snapshot.log, entry] }; GameSnapshotSchema.parse(next); return { ok: true as const, next, events: [entry] }; }
-    const players = snapshot.state.players as Array<{ id: string; index: number; name?: string }>; const activeIndex = snapshot.state.activePlayerIndex as number; const active = players[activeIndex]; if (!active) { return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'No players initialized' } }; } if (action.actorId !== active.id) { return { ok: false as const, error: { code: 'NOT_ACTIVE_PLAYER' as EngineErrorCode, message: 'Actor is not the active player' } }; }
-    const phase = (snapshot.state as { phase: 'awaitingPlacement' | 'awaitingAction' | 'awaitingPass' }).phase as 'awaitingPlacement' | 'awaitingAction' | 'awaitingPass';
-    { const eff = ((snapshot.state as any).effects ?? []) as any[]; const filtered = eff.filter((e:any) => !e.ownerPlayerId || e.ownerPlayerId === action.actorId); const hookSnap = { ...snapshot, state: { ...(snapshot.state as any), effects: filtered } } as GameSnapshot; for (const h of registries.hooks.onValidateAction) { try { const r = (h as any)(hookSnap, action); if (r && r.reject) { return { ok: false as const, error: r.reject }; } } catch {} } }
+
+    const players = (snapshot.state as any).players as Array<{ id: string; name?: string }>;
+    const activeIndex = (snapshot.state as any).activePlayerIndex as number;
+    const active = players[activeIndex] ?? { id: 'unknown' };
+    if (action.actorId !== active.id && action.type !== 'core.noop') { return { ok: false as const, error: { code: 'NOT_ACTIVE_PLAYER' as EngineErrorCode, message: 'Only active player may act' } }; }
+
+    if (action.type === 'core.noop') {
+      const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: 'No-op applied' };
+      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, log: [...snapshot.log, entry] };
+      GameSnapshotSchema.parse(next);
+      return { ok: true as const, next, events: [entry] };
+    }
+
+    const phase = (snapshot.state as { phase: 'awaitingPlacement' | 'awaitingAction' | 'awaitingPass' }).phase;
 
     if (action.type === 'core.passTurn') {
       if (phase !== 'awaitingPass') { return { ok: false as const, error: { code: 'WRONG_TURN_PHASE' as EngineErrorCode, message: 'Pass is only allowed in awaitingPass' } }; }
-      const nextIndex = (activeIndex + 1) % players.length; const round = (snapshot.state as any).round ?? 1; const turnInRound = (snapshot.state as any).turnInRound ?? 1; const roundStartPlayerIndex = (snapshot.state as any).roundStartPlayerIndex ?? 0; const wrapped = nextIndex === roundStartPlayerIndex; const nextRound = wrapped ? (round + 1) : round; const nextTurnInRound = wrapped ? 1 : (turnInRound + 1);
-      const at = Date.now(); const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> }; const sorted = [...board.cells].sort((a,b)=>a.key.localeCompare(b.key)); const totals: Record<string, number> = {}; let tileCount = 0; for (const cell of sorted) { if (cell.tile.placedBy === active.id) { tileCount++; const prod = (cell.tile.tile as { production?: Record<string, number> }).production; if (prod) { for (const [rid, amt] of Object.entries(prod)) { totals[rid] = (totals[rid] ?? 0) + (amt ?? 0); } } } }
-      const pools = (snapshot.state.resourcesByPlayerId as Record<string, Record<string, number>>) ?? {}; const current = { ...(pools[active.id] ?? {}) }; for (const [rid, amt] of Object.entries(totals)) { current[rid] = (current[rid] ?? 0) + amt; }
-      const resEntry = { id: action.actionId + ':res', at, kind: 'resourceResolution', message: `${active.name ?? active.id} resources resolved`, payload: { playerId: active.id, delta: totals, tileCount } };
-      const passEntry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} ended their turn` };
-      const aboutToBeActiveId = players[nextIndex]?.id;
-      // Round reset: when round increments, clear per-round measure flags on all extensions that expose measures.
-      let newState: any = { ...snapshot.state, resourcesByPlayerId: { ...pools, [active.id]: current }, activePlayerIndex: nextIndex, activePlayerId: players[nextIndex]?.id, phase: 'awaitingPlacement', round: nextRound, turnInRound: nextTurnInRound, roundStartPlayerIndex, turn: (snapshot.state.turn as number) + 1 };
-      if (nextRound !== (snapshot.state as any).round) {
-        const exts = { ...(newState.extensions ?? {}) } as Record<string, any>;
-        for (const k of Object.keys(exts).sort()) {
-          const ext = exts[k];
-          if (ext && typeof ext === 'object' && ext.measures && typeof ext.measures === 'object') {
-            ext.measures = resetMeasureRoundFlags(ext.measures);
-          }
-        }
-        newState = { ...newState, extensions: exts };
-      }
-      const prunedState = pruneExpiredEffects(newState, aboutToBeActiveId);
-      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: prunedState, log: [...snapshot.log, resEntry, passEntry] };
-      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} } GameSnapshotSchema.parse(next);
+      const nextIndex = (activeIndex + 1) % players.length;
+      const roundStartPlayerIndex = (snapshot.state as any).roundStartPlayerIndex as number;
+      const nextTurnInRound = nextIndex === roundStartPlayerIndex ? 1 : ((snapshot.state as any).turnInRound as number) + 1;
+      const nextRound = nextIndex === roundStartPlayerIndex ? ((snapshot.state as any).round as number) + 1 : (snapshot.state as any).round;
+      const at = Date.now();
+      const passEntry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} passed` };
+      const pools = (snapshot.state as any).resourcesByPlayerId as Record<string, Record<string, number>>;
+      const current = { ...(pools[active.id] ?? {}) };
+      const newState: any = { ...snapshot.state, resourcesByPlayerId: { ...pools, [active.id]: current }, activePlayerIndex: nextIndex, activePlayerId: players[nextIndex]?.id, phase: 'awaitingPlacement', round: nextRound, turnInRound: nextTurnInRound, roundStartPlayerIndex, turn: ((snapshot.state as any).turn as number) + 1 };
+      const pruned = pruneExpiredEffects(newState, players[nextIndex]?.id);
+      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: pruned, log: [...snapshot.log, passEntry] };
+      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+      GameSnapshotSchema.parse(next);
       const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
       let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
-      return { ok: true as const, next: finalNext, events: [resEntry, passEntry, ...extraEvents] };
+      return { ok: true as const, next: finalNext, events: [passEntry, ...extraEvents] };
     }
 
     if (action.type === 'core.drawTile') {
-      if (phase !== 'awaitingAction') { return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Draw is only allowed after placement' } }; }
-      const supply = snapshot.state.supply as { tiles: Array<{ id: string; kind: string; production: Record<string, number> }>; drawIndex: number }; if (supply.drawIndex >= supply.tiles.length) { return { ok: false as const, error: { code: 'SUPPLY_EMPTY' as EngineErrorCode, message: 'No tiles left to draw' } }; }
-      const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string; production: Record<string, number> }>>; const hand: Array<{ id: string; kind: string; production: Record<string, number> }> = hands[active.id] ?? []; if (hand.length >= 5) { return { ok: false as const, error: { code: 'HAND_FULL' as EngineErrorCode, message: 'Hand limit reached' } }; }
-      const drawn = supply.tiles[supply.drawIndex]!; const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} drew a tile` };
-      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...snapshot.state, supply: { tiles: supply.tiles, drawIndex: supply.drawIndex + 1 }, hands: { ...hands, [active.id]: [...hand, drawn] }, phase: 'awaitingPass' }, log: [...snapshot.log, entry] };
-      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} } GameSnapshotSchema.parse(next);
-      const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
-      let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
-      return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
+      if (phase !== 'awaitingPlacement') { return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Draw only allowed at turn start' } }; }
+      const supply = (snapshot.state as any).supply as { tiles: Array<{ id: string; kind: string; production: Record<string, number> }>; drawIndex: number; openDiscard: Array<{ id: string; kind: string; production: Record<string, number }> };
+      let drawIndex = supply.drawIndex;
+      let pending: { id: string; kind: string; production: Record<string, number> } | null = null;
+      while (drawIndex < supply.tiles.length) {
+        const t = supply.tiles[drawIndex]!;
+        // With basic rules, any tile is globally placeable (adjacency enforced at placement)
+        pending = t; drawIndex++; break;
+      }
+      const at = Date.now();
+      if (!pending) {
+        const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} found no placeable tile (supply empty)` };
+        const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...(snapshot.state as any), supply: { ...supply, drawIndex }, pendingPlacementTile: null, phase: 'awaitingAction' }, log: [...snapshot.log, entry] } as GameSnapshot;
+        for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+        GameSnapshotSchema.parse(next);
+        const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
+        let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
+        return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
+      } else {
+        const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} drew a tile for placement` };
+        const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...(snapshot.state as any), supply: { ...supply, drawIndex }, pendingPlacementTile: pending }, log: [...snapshot.log, entry] } as GameSnapshot;
+        for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+        GameSnapshotSchema.parse(next);
+        const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
+        let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
+        return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
+      }
     }
 
     if (action.type === 'core.placeTile') {
       if (phase !== 'awaitingPlacement') { return { ok: false as const, error: { code: 'PLACEMENT_ALREADY_DONE' as EngineErrorCode, message: 'Placement already performed this turn' } }; }
-      const payload = action.payload as { coord: { q: number; r: number }; tileId: string }; const key = `${payload.coord.q},${payload.coord.r}`; const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> };
+      const payload = action.payload as { coord: { q: number; r: number } };
+      const key = `${payload.coord.q},${payload.coord.r}`;
+      const board = (snapshot.state as any).board as { cells: Array<{ key: string; tile: PlacedTile }> };
       if (board.cells.some((c) => c.key === key)) { return { ok: false as const, error: { code: 'CELL_OCCUPIED' as EngineErrorCode, message: 'Target cell is occupied' } }; }
-      if (board.cells.some((c) => c.tile.tile.id === payload.tileId)) { return { ok: false as const, error: { code: 'DUPLICATE_TILE_ID' as EngineErrorCode, message: 'Tile id already placed' } }; }
-      const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string; production: Record<string, number> }>>; const hand = hands[active.id] ?? []; const tileIdx = hand.findIndex((t) => t.id === payload.tileId); if (tileIdx === -1) { return { ok: false as const, error: { code: 'TILE_NOT_IN_HAND' as EngineErrorCode, message: 'Tile not in active hand' } }; }
-      const tileObj = hand[tileIdx]!; const placed = { tile: tileObj, coord: payload.coord, placedBy: action.actorId, placedAtTurn: snapshot.state.turn as number }; const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed tile ${tileObj.kind} at (${payload.coord.q},${payload.coord.r})` };
-      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...snapshot.state, board: { cells: [...board.cells, { key, tile: placed }] }, hands: { ...hands, [active.id]: hand.filter((_, i) => i !== tileIdx) }, phase: 'awaitingAction' }, log: [...snapshot.log, entry] };
-      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} } GameSnapshotSchema.parse(next);
+      const pending = (snapshot.state as any).pendingPlacementTile as { id: string; kind: string; production: Record<string, number> } | null;
+      if (!pending) { return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'No drawn tile to place' } }; }
+      if (board.cells.length > 0) { const occ = new Set(board.cells.map(c => c.key)); if (!isAdjacentToAny(payload.coord, occ)) { return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Placement must be adjacent' } }; } }
+      if (board.cells.some((c) => c.tile.tile.id === pending.id)) { return { ok: false as const, error: { code: 'DUPLICATE_TILE_ID' as EngineErrorCode, message: 'Tile id already placed' } }; }
+      const placed = { tile: pending, coord: payload.coord, placedBy: action.actorId, placedAtTurn: (snapshot.state as any).turn as number };
+      const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed tile ${pending.kind} at (${payload.coord.q},${payload.coord.r})` };
+      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...(snapshot.state as any), board: { cells: [...board.cells, { key, tile: placed }] }, pendingPlacementTile: null, phase: 'awaitingAction' }, log: [...snapshot.log, entry] } as GameSnapshot;
+      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+      GameSnapshotSchema.parse(next);
       const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
       let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
       return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
@@ -191,11 +199,19 @@ export function createEngine(options: EngineOptions): Engine {
 
     if (action.type === 'core.placeInfluence') {
       if (phase !== 'awaitingAction') { return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Influence placement only allowed after placement' } }; }
-      const payload = action.payload as { coord: { q: number; r: number }; amount: 1 }; const key = `${payload.coord.q},${payload.coord.r}`; const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> }; if (!board.cells.some(c => c.key === key)) { return { ok: false as const, error: { code: 'TILE_NOT_FOUND' as EngineErrorCode, message: 'No tile at coord' } }; }
-      const inf = { ...(snapshot.state.influenceByCoord as Record<string, Record<string, number>> ) }; const per = { ...(inf[key] ?? {}) }; const cur = (per[active.id] ?? 0); if (cur + 1 > 3) { return { ok: false as const, error: { code: 'INFLUENCE_CAP_REACHED' as EngineErrorCode, message: 'Cap 3 per tile reached' } }; }
-      per[active.id] = cur + 1; inf[key] = per; const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed influence at (${payload.coord.q},${payload.coord.r})` };
-      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...snapshot.state, influenceByCoord: inf, phase: 'awaitingPass' as const }, log: [...snapshot.log, entry] };
-      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} } GameSnapshotSchema.parse(next);
+      const payload = action.payload as { coord: { q: number; r: number }; amount: 1 };
+      const key = `${payload.coord.q},${payload.coord.r}`;
+      const board = (snapshot.state as any).board as { cells: Array<{ key: string; tile: PlacedTile }> };
+      if (!board.cells.some(c => c.key === key)) { return { ok: false as const, error: { code: 'TILE_NOT_FOUND' as EngineErrorCode, message: 'No tile at coord' } }; }
+      const inf = { ...((snapshot.state as any).influenceByCoord as Record<string, Record<string, number>>) };
+      const per = { ...(inf[key] ?? {}) };
+      const cur = (per[active.id] ?? 0);
+      if (cur + 1 > 3) { return { ok: false as const, error: { code: 'INFLUENCE_CAP_REACHED' as EngineErrorCode, message: 'Cap 3 per tile reached' } }; }
+      per[active.id] = cur + 1; inf[key] = per;
+      const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed influence at (${payload.coord.q},${payload.coord.r})` };
+      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...(snapshot.state as any), influenceByCoord: inf, phase: 'awaitingPass' }, log: [...snapshot.log, entry] } as GameSnapshot;
+      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+      GameSnapshotSchema.parse(next);
       const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
       let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
       return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
@@ -203,19 +219,41 @@ export function createEngine(options: EngineOptions): Engine {
 
     if (action.type === 'core.moveInfluence') {
       if (phase !== 'awaitingAction') { return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Influence move only allowed after placement' } }; }
-      const payload = action.payload as { from: { q: number; r: number }; to: { q: number; r: number }; amount: 1 }; const fromKey = `${payload.from.q},${payload.from.r}`; const toKey = `${payload.to.q},${payload.to.r}`; const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> }; if (!board.cells.some(c => c.key === fromKey) || !board.cells.some(c => c.key === toKey)) { return { ok: false as const, error: { code: 'TILE_NOT_FOUND' as EngineErrorCode, message: 'Tile not found' } }; }
-      const inf = { ...(snapshot.state.influenceByCoord as Record<string, Record<string, number>> ) }; const fromPer = { ...(inf[fromKey] ?? {}) }; const toPer = { ...(inf[toKey] ?? {}) }; const fromCur = fromPer[active.id] ?? 0; if (fromCur < 1) { return { ok: false as const, error: { code: 'INSUFFICIENT_INFLUENCE' as EngineErrorCode, message: 'Not enough influence at source' } }; } const toCur = toPer[active.id] ?? 0; if (toCur + 1 > 3) { return { ok: false as const, error: { code: 'INFLUENCE_CAP_REACHED' as EngineErrorCode, message: 'Cap 3 per tile reached at destination' } }; }
-      fromPer[active.id] = fromCur - 1; if (fromPer[active.id] === 0) { delete fromPer[active.id]; } toPer[active.id] = toCur + 1; inf[fromKey] = fromPer; inf[toKey] = toPer; const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} moved influence from (${payload.from.q},${payload.from.r}) to (${payload.to.q},${payload.to.r})` };
-      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...snapshot.state, influenceByCoord: inf, phase: 'awaitingPass' as const }, log: [...snapshot.log, entry] };
-      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} } GameSnapshotSchema.parse(next);
+      const payload = action.payload as { from: { q: number; r: number }; to: { q: number; r: number }; amount: 1 };
+      const fromKey = `${payload.from.q},${payload.from.r}`; const toKey = `${payload.to.q},${payload.to.r}`;
+      const board = (snapshot.state as any).board as { cells: Array<{ key: string; tile: PlacedTile }> };
+      if (!board.cells.some(c => c.key === fromKey) || !board.cells.some(c => c.key === toKey)) { return { ok: false as const, error: { code: 'TILE_NOT_FOUND' as EngineErrorCode, message: 'Tile not found' } }; }
+      const inf = { ...((snapshot.state as any).influenceByCoord as Record<string, Record<string, number>>) };
+      const fromPer = { ...(inf[fromKey] ?? {}) }; const toPer = { ...(inf[toKey] ?? {}) };
+      const fromCur = fromPer[active.id] ?? 0; if (fromCur < 1) { return { ok: false as const, error: { code: 'INSUFFICIENT_INFLUENCE' as EngineErrorCode, message: 'Not enough influence at source' } }; }
+      const toCur = toPer[active.id] ?? 0; if (toCur + 1 > 3) { return { ok: false as const, error: { code: 'INFLUENCE_CAP_REACHED' as EngineErrorCode, message: 'Cap 3 per tile reached at destination' } }; }
+      fromPer[active.id] = fromCur - 1; if (fromPer[active.id] === 0) { delete fromPer[active.id]; } toPer[active.id] = toCur + 1; inf[fromKey] = fromPer; inf[toKey] = toPer;
+      const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} moved influence from (${payload.from.q},${payload.from.r}) to (${payload.to.q},${payload.to.r})` };
+      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...(snapshot.state as any), influenceByCoord: inf, phase: 'awaitingPass' }, log: [...snapshot.log, entry] } as GameSnapshot;
+      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+      GameSnapshotSchema.parse(next);
       const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
       let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
       return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
     }
 
-    if (phase === 'awaitingPlacement') { return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Only placement allowed at turn start' } }; }
     if (phase === 'awaitingPass' && action.type !== 'core.passTurn') { return { ok: false as const, error: { code: 'WRONG_TURN_PHASE' as EngineErrorCode, message: 'Only pass allowed now' } }; }
-    for (const reducer of registries.reducers) { const res = reducer(snapshot, action); if (res) { const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: 'Action applied' }; const nextState = (phase === 'awaitingAction' && action.type !== 'core.passTurn') ? { ...res.next.state, phase: 'awaitingPass' as const } : res.next.state; const next = { ...res.next, state: nextState, revision: snapshot.revision + 1, updatedAt: at, log: [...snapshot.log, entry] } as GameSnapshot; for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} } GameSnapshotSchema.parse(next); const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} } let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} } return { ok: true as const, next: finalNext, events: [entry, ...(res.events ?? []), ...extraEvents] }; } }
+
+    for (const reducer of registries.reducers) {
+      const res = reducer(snapshot, action);
+      if (res) {
+        const at = Date.now();
+        const entry = { id: action.actionId, at, kind: action.type, message: 'Action applied' };
+        const nextState = (phase === 'awaitingAction' && action.type !== 'core.passTurn') ? { ...res.next.state, phase: 'awaitingPass' as const } : res.next.state;
+        const next = { ...res.next, state: nextState, revision: snapshot.revision + 1, updatedAt: at, log: [...snapshot.log, entry] } as GameSnapshot;
+        for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
+        GameSnapshotSchema.parse(next);
+        const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
+        let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
+        return { ok: true as const, next: finalNext, events: [entry, ...(res.events ?? []), ...extraEvents] };
+      }
+    }
+
     return { ok: false as const, error: { code: 'UNKNOWN_ACTION' as EngineErrorCode, message: `No reducer handled action: ${action.type}` } };
   }
 
