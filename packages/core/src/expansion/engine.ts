@@ -171,11 +171,11 @@ export function createEngine(options: EngineOptions): Engine {
       const current = { ...(pools[active.id] ?? {}) };
 
       // Engine ticks: prune effects, reset per-round flags when wrapping
-      let newState: any = { ...snapshot.state, resourcesByPlayerId: { ...pools, [active.id]: current }, activePlayerIndex: nextIndex, activePlayerId: players[nextIndex]?.id, phase: 'awaitingPlacement', round: nextRound, turnInRound: nextTurnInRound, roundStartPlayerIndex, turn: ((snapshot.state as any).turn as number) + 1 };
+      let newState: any = { ...snapshot.state, resourcesByPlayerId: { ...pools, [active.id]: current }, activePlayerIndex: nextIndex, activePlayerId: plist[nextIndex]?.id, phase: 'awaitingPlacement', round: nextRound, turnInRound: nextTurnInRound, roundStartPlayerIndex, turn: ((snapshot.state as any).turn as number) + 1 };
       if (nextIndex === roundStartPlayerIndex) {
         try { newState.extensions = resetMeasureRoundFlags(newState.extensions); } catch {}
       }
-      const pruned = pruneExpiredEffects(newState, players[nextIndex]?.id);
+      const pruned = pruneExpiredEffects(newState, plist[nextIndex]?.id);
       const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: pruned, log: [...snapshot.log, passEntry] };
       for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
       GameSnapshotSchema.parse(next);
@@ -300,6 +300,7 @@ export function createEngine(options: EngineOptions): Engine {
 
   return { registries, createInitialSnapshot, applyAction };
 }
+
 
 
 
