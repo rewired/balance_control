@@ -140,7 +140,7 @@ export function createEngine(options: EngineOptions): Engine {
     for (const h of registries.hooks.onBeforeActionValidate) { try { (h as any)(snapshot, action); } catch {} }
     const parsed = (schema as { payload: ZodTypeAny }).payload.safeParse(action.payload);
     if (!parsed.success) {
-      return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'Invalid payload', details: parsed.error.flatten() } };
+  }\n\n    // Allow validation hooks to reject\n    for (const h of registries.hooks.onValidateAction) { try { const res = (h as any)(snapshot, action); if (res && typeof res === 'object' && (res as any).reject) { const rej = (res as any).reject as { code?: string; message?: string }; return { ok: false as const, error: { code: 'HOOK_REJECTED' as EngineErrorCode, message: rej.message ?? 'Rejected by hook' } }; } } catch {} }\n     return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'Invalid payload', details: parsed.error.flatten() } };
     }
 
     const players = (snapshot.state as any).players as Array<{ id: string; name?: string }>;
@@ -301,6 +301,7 @@ export function createEngine(options: EngineOptions): Engine {
 
   return { registries, createInitialSnapshot, applyAction };
 }
+
 
 
 
