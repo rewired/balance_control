@@ -23,7 +23,8 @@ export function neighbors(coord: { q: number; r: number }): Array<{ q: number; r
 
 export function isAdjacentToAny(coord: { q: number; r: number }, occupiedKeys: Set<string>): boolean {
   for (const n of neighbors(coord)) {
-    if (occupiedKeys.has(${n.q},)) return true;
+    if (occupiedKeys.has(`${n.q},${n.r}`)) return true;
   }
   return false;
 }
+
