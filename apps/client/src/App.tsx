@@ -23,7 +23,7 @@ export function App() {
       const parsed = HelloSchema.safeParse(data);
       if (parsed.success) setHello(`${parsed.data.version} [${parsed.data.capabilities.join(', ')}]`);
     });
-    s.on('server:snapshot', (snap) => setSnapshot(snap));
+    s.on('server:snapshot', (snap) => { setSnapshot(snap); setEnabled(snap.config.enabledExpansions); });
     s.on('server:error', (e) => setError(e));
     return () => { s.close(); };
   }, []);
@@ -66,6 +66,7 @@ export function App() {
 
       <section>
         <h3>Snapshot</h3>
+        <p><small>Enabled expansions: {enabled.join(', ') || '(none)'}</small></p>
         {snapshot ? (
           <ul>
             <li>revision: {snapshot.revision}</li>
