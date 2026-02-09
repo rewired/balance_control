@@ -96,7 +96,7 @@ export function createEngine(options: EngineOptions): Engine {
       state: {
         players,
         activePlayerIndex: 0,
-        activePlayerId: players[0]?.id,
+        activePlayerId: plist[0]?.id,
         phase: 'awaitingPlacement',
         round: 1,
         turnInRound: 1,
@@ -144,7 +144,7 @@ export function createEngine(options: EngineOptions): Engine {
     // Allow validation hooks to reject
     for (const h of registries.hooks.onValidateAction) { try { const res = (h as any)(snapshot, action); if (res && typeof res === 'object' && (res as any).reject) { const rej = (res as any).reject as { code?: string; message?: string }; return { ok: false as const, error: { code: 'HOOK_REJECTED' as EngineErrorCode, message: rej.message ?? 'Rejected by hook' } }; } } catch {} }
     const activeIndex = (snapshot.state as any).activePlayerIndex as number;
-    const active = players[activeIndex] ?? { id: 'unknown' };
+    const active = plist[activeIndex] ?? { id: 'unknown' };
     if (action.actorId !== active.id && action.type !== 'core.noop') {
       return { ok: false as const, error: { code: 'NOT_ACTIVE_PLAYER' as EngineErrorCode, message: 'Only active player may act' } };
     }
@@ -300,6 +300,7 @@ export function createEngine(options: EngineOptions): Engine {
 
   return { registries, createInitialSnapshot, applyAction };
 }
+
 
 
 
