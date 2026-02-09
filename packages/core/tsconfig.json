@@ -1,12 +1,19 @@
-﻿{
+{
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "declaration": true,
-    "composite": false,
-    "moduleResolution": "Bundler"
+    "types": ["node"]
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "dist", "node_modules"]
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/expansion/engine.backup.ts",
+    "src/expansion/engine.rewrite.source.ts",
+    "dist",
+    "node_modules"
+  ]
 }

@@ -49,4 +49,8 @@ export interface EngineRegistries {
   resourceDefProviders: Map<string, ResourceDef[]>; // per-expansion defs collected during register(); applied per-session
 }
 
-export interface EngineOptions { expansions: ExpansionModule[] }
+export interface EngineOptions {
+  expansions: ExpansionModule[];
+  isTileGloballyPlaceable?: (state: import('../protocol').GameState, tile: { id: string; kind: string; production: Record<string, number> }) => boolean;
+  isPlacementLegal?: (state: import('../protocol').GameState, tile: { id: string; kind: string; production: Record<string, number> }, coord: { q: number; r: number }) => boolean;
+}
