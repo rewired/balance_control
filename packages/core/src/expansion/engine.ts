@@ -5,7 +5,7 @@ import type { ActionEnvelope, GameConfig, GameSnapshot, PlacedTile, ResourceDef 
 import { GameSnapshotSchema } from '../protocol';
 import type { EngineRegistries, EngineOptions } from './types';
 import { buildEngineRegistries } from './registry';
-import { generateSupplyTiles } from '../supply';
+ { isAdjacentToAny } from '../coord';
 
 export type EngineErrorCode =
   | 'UNKNOWN_ACTION'
