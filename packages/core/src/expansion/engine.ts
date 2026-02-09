@@ -194,18 +194,24 @@ export function createEngine(options: EngineOptions): Engine {
     }
     if (action.type === 'core.placeTile') {
       if (phase !== 'awaitingPlacement') { return { ok: false as const, error: { code: 'PLACEMENT_ALREADY_DONE' as EngineErrorCode, message: 'Placement already performed this turn' } }; }
-      const payload = action.payload as { coord: { q: number; r: number }; tileId: string }; const key = `${payload.coord.q},${payload.coord.r}`; const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> };
+      const payload = action.payload as { coord: { q: number; r: number } }; const key = `${payload.coord.q},${payload.coord.r}`; const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> };
       if (board.cells.some((c) => c.key === key)) { return { ok: false as const, error: { code: 'CELL_OCCUPIED' as EngineErrorCode, message: 'Target cell is occupied' } }; }
-      if (board.cells.some((c) => c.tile.tile.id === payload.tileId)) { return { ok: false as const, error: { code: 'DUPLICATE_TILE_ID' as EngineErrorCode, message: 'Tile id already placed' } }; }
-      const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string; production: Record<string, number> }>>; const hand = hands[active.id] ?? []; const tileIdx = hand.findIndex((t) => t.id === payload.tileId); if (tileIdx === -1) { return { ok: false as const, error: { code: 'TILE_NOT_IN_HAND' as EngineErrorCode, message: 'Tile not in active hand' } }; }
-      const tileObj = hand[tileIdx]!; const placed = { tile: tileObj, coord: payload.coord, placedBy: action.actorId, placedAtTurn: snapshot.state.turn as number }; const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed tile ${tileObj.kind} at (${payload.coord.q},${payload.coord.r})` };
-      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...snapshot.state, board: { cells: [...board.cells, { key, tile: placed }] }, hands: { ...hands, [active.id]: hand.filter((_, i) => i !== tileIdx) }, phase: 'awaitingAction' }, log: [...snapshot.log, entry] };
+      const pending = (snapshot.state as any).pendingPlacementTile as { id: string; kind: string; production: Record<string, number> } | null;
+      if (!pending) { return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'No drawn tile to place' } }; }
+      // Enforce adjacency: if board empty, allow anywhere; else coord must touch an existing tile
+      if (board.cells.length > 0) {
+        const occupied = new Set(board.cells.map(c => c.key));
+        if (!isAdjacentToAny(payload.coord, occupied)) { return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Placement must be adjacent' } }; }
+      }
+      if (board.cells.some((c) => c.tile.tile.id === pending.id)) { return { ok: false as const, error: { code: 'DUPLICATE_TILE_ID' as EngineErrorCode, message: 'Tile id already placed' } }; }
+      const placed = { tile: pending, coord: payload.coord, placedBy: action.actorId, placedAtTurn: snapshot.state.turn as number };
+      const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} placed tile ${pending.kind} at (${payload.coord.q},${payload.coord.r})` };
+      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...snapshot.state, board: { cells: [...board.cells, { key, tile: placed }] }, pendingPlacementTile: null, phase: 'awaitingAction' }, log: [...snapshot.log, entry] };
       for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} } GameSnapshotSchema.parse(next);
       const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
       let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
       return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
     }
-
     if (action.type === 'core.placeInfluence') {
       if (phase !== 'awaitingAction') { return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Influence placement only allowed after placement' } }; }
       const payload = action.payload as { coord: { q: number; r: number }; amount: 1 }; const key = `${payload.coord.q},${payload.coord.r}`; const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> }; if (!board.cells.some(c => c.key === key)) { return { ok: false as const, error: { code: 'TILE_NOT_FOUND' as EngineErrorCode, message: 'No tile at coord' } }; }
