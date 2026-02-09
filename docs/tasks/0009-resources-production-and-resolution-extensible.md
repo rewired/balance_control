@@ -205,3 +205,121 @@ Append entry:
 
 ---
 
+Summary
+
+Core status (as of 0008):
+
+Turn phases enforced: awaitingPlacement → awaitingAction → awaitingPass.
+Core actions implemented: core.placeTile (from hand), core.drawTile, core.passTurn with actor/phase validation.
+Deterministic seed plumbing present; supply generator exists (ids and kinds).
+Board uses axial coords and JSON-stable entries.
+Server: actorId enforcement, seed accepted at session create, pass-through to core.
+Client: debug UI shows players, active player, phase, board, hand; buttons wired to actions; phase-based enable/disable.
+Tests: core (turns, phases, supply, placement) and server (session create, placement phase gating) pass.
+Temporary scaffolding cleaned earlier; no leftover temp files to remove for this task.
+0009 scope (resources and end-of-turn resolution):
+
+Add an extensible resource registry (base: domestic, foreign, media).
+Make Tile carry production map (Record<ResourceId, number>).
+Keep determinism: registry composed at engine init; production summed deterministically on passTurn.
+Pools are per-player maps keyed by resource id; client shows pools + last resolution delta.
+Files Touched
+
+Core protocol/types
+packages/core/src/protocol/index.ts
+Add ResourceId, ResourceDef schema.
+Extend TileSchema with production: Record<string, number> (ints, non-negative).
+Add GameState fields:
+resources: { registry: ResourceDef[] }
+resourcesByPlayerId: Record<string, Record<ResourceId, number>>
+Extend ServerError enum with DUPLICATE_RESOURCE_ID.
+Add optional payload to EventLogEntry (for resourceResolution).
+Core expansion registry
+packages/core/src/expansion/types.ts
+ExpansionRegistry: add optional registerResourceDef(def: ResourceDef).
+EngineRegistries: add resourceDefs: Map<string, ResourceDef>.
+packages/core/src/expansion/registry.ts
+Initialize resourceDefs.
+Implement registerResourceDef with duplicate-id guard.
+Core engine
+packages/core/src/expansion/engine.ts
+Base resources constant (domestic/foreign/media).
+On createInitialSnapshot:
+Compose registry = base + expansion-contributed (error on duplicate).
+Initialize resourcesByPlayerId with zeros for each player/resource.
+PassTurn reducer:
+Sort board cells by key (deterministic).
+Sum production for active player’s placed tiles into totals map.
+Add totals to pools[activeId].
+Emit event: kind: "resourceResolution", payload: { playerId, delta, tileCount }.
+Keep existing pass-turn message; order events [resourceResolution, pass].
+Supply
+packages/core/src/supply.ts
+Include production in generated tiles (map kind to resource):
+generic-a → { domestic: 1 }, generic-b → { foreign: 1 }, generic-c → { media: 1 }.
+Server (no behavior changes)
+apps/server/src/app.ts: none required (schema-wrapped, already passes snapshots/events).
+Client debug UI
+apps/client/src/App.tsx
+Show registry ids.
+Render per-player pools row with current amounts.
+Show last resourceResolution delta breakdown.
+Tests
+Core tests
+packages/core/src/resources.test.ts
+Pools initialized to 0 for all players/resources.
+place → draw → pass increases passing player’s pool by correct resource (+1).
+Deterministic keys/values implied by seeded supply + sort-by-key when summing.
+packages/core/src/resources-dup.test.ts
+Engine init or snapshot creation fails when an expansion registers a duplicate resource id.
+Server tests
+apps/server/src/resources.test.ts
+Session create → place → draw → pass results in pool increment for p1; snapshot contains registry + pools.
+Docs/Changelog
+CHANGELOG.md
+New dated entry describing registry/pools, production, passTurn resolution event, extensibility notes.
+Manual Verification Steps
+
+Dev run
+pnpm dev
+Create session (default 2 players).
+UI: verify registry shows: domestic, foreign, media; pools rows for p1/p2 with zeros.
+Hotseat flow:
+p1 place from initial hand at (0,0) → phase = awaitingAction.
+p1 draw → phase = awaitingPass.
+p1 pass → active player advances; turn increments; resource pools show +1 for the resource produced by the placed tile (based on kind → resource mapping).
+Event log shows two items: resourceResolution (with payload) then core.passTurn message. UI displays last resolution delta.
+Negative cases (covered by tests, quick smoke if desired)
+Duplicate registry id (inject dummy expansion): expect error.
+Determinism
+Start two sessions with same seed, players → verify registry identical and first placed tile produces same resource.
+Exact Commands
+
+Build and test all:
+pnpm -r build
+pnpm -r test
+pnpm -r lint
+Dev:
+pnpm dev (server + client)
+Server-only integration tests:
+pnpm --filter @bc/server test
+Core-only tests:
+pnpm --filter @bc/core test
+Implementation Notes and Guardrails
+
+Determinism:
+Registry compilation must be stable (sort by id).
+When resolving resources, iterate board cells sorted by key to avoid map/object ordering ambiguities.
+Extensibility:
+Never hardcode resource keys into state types; use map/Record<ResourceId, number>.
+Enforce duplicate resource-id failure with a clear error (surface as DUPLICATE_RESOURCE_ID).
+Tile production:
+MVP restricts to a single resource id with amount 1; model supports arbitrary map.
+Client event payload:
+EventLogEntry gains payload (unknown); client checks kind === 'resourceResolution' and renders payload safely.
+Backward-compatibility:
+Server remains pass-through; no extra logic required beyond existing validation.
+Keep 0008 invariants intact:
+Phase gating unchanged: place only in awaitingPlacement; draw only in awaitingAction; pass only in awaitingPass.
+Maintain hand limit (5) and NOT_ACTIVE_PLAYER/phase errors.
+If you want, I can implement these changes now in a branch and run the full test/build pipeline, but the plan above is precise so another teammate can pick up quickly and avoid rework.
