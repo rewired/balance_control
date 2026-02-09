@@ -40,8 +40,7 @@ export interface Engine {
     | { ok: false; error: { code: EngineErrorCode; message: string; details?: unknown } };
 }
 
-export function createEngine(options: EngineOptions): Engine {
-  const registries = buildEngineRegistries(options);
+export function createEngine(options: EngineOptions): Engine {\n  const registries = buildEngineRegistries(options);\n  const defaultIsGloballyPlaceable = (state: any, _tile: any) => true;\n  const defaultIsPlacementLegal = (state: any, _tile: any, coord: { q: number; r: number }) => { const board = state.board as { cells: Array<{ key: string }> }; if (board.cells.length === 0) return true; const occ = new Set(board.cells.map((c:any)=>c.key)); return isAdjacentToAny(coord, occ); };\n  const isGloballyPlaceable = options.isTileGloballyPlaceable ?? defaultIsGloballyPlaceable;\n  const isPlacementLegal = options.isPlacementLegal ?? defaultIsPlacementLegal;
 
   // Base resource definitions (session-scoped)
   const baseResources: ResourceDef[] = [
