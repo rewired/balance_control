@@ -53,7 +53,7 @@ export function createEngine(options: EngineOptions): Engine {
   // Register core action schemas (immutable)
   registries.actions.set('core.noop', { type: 'core.noop', payload: z.unknown() as unknown as ZodTypeAny });
   registries.actions.set('core.passTurn', { type: 'core.passTurn', payload: z.object({}).strict() as ZodTypeAny });
-  registries.actions.set('core.placeTile', {
+  registries.actions.set('core.placeTile', { type: 'core.placeTile', payload: z.object({ coord: z.object({ q: z.number().int(), r: z.number().int() }) }).strict() as ZodTypeAny });
     type: 'core.placeTile',
     payload: z.object({
       coord: z.object({ q: z.number().int(), r: z.number().int() }),
