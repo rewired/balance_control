@@ -36,12 +36,14 @@ describe('effects expiry and blocking', () => {
     // p2 quick turn
     r = engine.applyAction(s, { sessionId: 's', actionId: 'd2', type: 'core.drawTile', payload: {}, actorId: 'p2' } as any); if (!r.ok) throw new Error('p2 draw');
     r = engine.applyAction(r.next, { sessionId: 's', actionId: 'p2', type: 'core.placeTile', payload: { coord: { q: 1, r: 0 } }, actorId: 'p2' } as any); if (!r.ok) throw new Error('p2 place');
+    r = engine.applyAction(r.next, { sessionId: 's', actionId: 'i2', type: 'core.placeInfluence', payload: { coord: { q: 1, r: 0 }, amount: 1 }, actorId: 'p2' } as any); if (!r.ok) throw new Error('p2 act');
     r = engine.applyAction(r.next, { sessionId: 's', actionId: 'x2', type: 'core.passTurn', payload: {}, actorId: 'p2' } as any); if (!r.ok) throw new Error('p2 pass');
     s = r.next;
 
     // p3 quick turn
     r = engine.applyAction(s, { sessionId: 's', actionId: 'd3', type: 'core.drawTile', payload: {}, actorId: 'p3' } as any); if (!r.ok) throw new Error('p3 draw');
     r = engine.applyAction(r.next, { sessionId: 's', actionId: 'p3', type: 'core.placeTile', payload: { coord: { q: 2, r: 0 } }, actorId: 'p3' } as any); if (!r.ok) throw new Error('p3 place');
+    r = engine.applyAction(r.next, { sessionId: 's', actionId: 'i3', type: 'core.placeInfluence', payload: { coord: { q: 2, r: 0 }, amount: 1 }, actorId: 'p3' } as any); if (!r.ok) throw new Error('p3 act');
     r = engine.applyAction(r.next, { sessionId: 's', actionId: 'x3', type: 'core.passTurn', payload: {}, actorId: 'p3' } as any); if (!r.ok) throw new Error('p3 pass');
     s = r.next; // p1 active again; effect should expire at this turn boundary
 
@@ -50,3 +52,4 @@ describe('effects expiry and blocking', () => {
     expect(ok.ok).toBe(true);
   });
 });
+
