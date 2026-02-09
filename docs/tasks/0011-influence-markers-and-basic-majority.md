@@ -334,3 +334,60 @@ If you want, I can finalize 0011 (helper, tests, UI) and tidy the CHANGELOG sect
 
 ---
 
+Summary
+
+Implemented Task 0011 core pieces and finished integration:
+Core: added pure majority helper getTileMajority(state, coord) with deterministic player-order iteration.
+Core: influence actions are already registered and phase‑gated; added focused tests for influence and majority.
+Client: extended debug UI to list influence per tile, place/move influence, and show majority for a coord.
+Economy: kept unchanged; no core special-casing (0010 remains valid).
+Cleanup: removed stray backup file (apps/client/src/App.tsx.bak).
+All packages now build, test, and lint cleanly.
+Files Touched
+
+CHANGELOG.md
+packages/core/src/influence.ts
+packages/core/src/influence.test.ts
+packages/core/src/index.ts
+packages/core/src/engine.ts
+packages/core/src/expansion/engine.ts
+packages/core/src/protocol/index.ts
+packages/core/src/supply.test.ts
+packages/exp-economy/src/index.ts
+apps/client/package.json
+apps/client/src/App.tsx
+Removed: apps/client/src/App.tsx.bak
+Manual Verification Steps
+
+Start dev:
+pnpm dev
+Create a session in the client UI (defaults to two players).
+Placement → optional action → pass:
+Place any tile from the active hand at (q,r) → phase becomes awaitingAction.
+Place influence: set iq/ir, click “Place influence” → phase becomes awaitingPass.
+Pass turn → check event log and next active player.
+Move influence:
+Ensure there are two tiles on the board (across turns).
+On your turn: place a tile (awaitingAction), set fromQ/fromR and toQ/toR, click “Move influence” → phase becomes awaitingPass.
+Majority:
+Enter iq/ir of a placed tile; majority block shows leader, tie flag, and max value.
+Economy (optional):
+Start server separately and create a session via API with "enabledExpansions": ["economy"].
+Draw until an economy tile appears, place it, then pass; resources show economy increment.
+Exact Commands
+
+Build all: pnpm -w -r build
+Test all: pnpm -w -r test
+Lint all: pnpm -w -r lint
+Run dev (server + client): pnpm dev
+Preview built client via server:
+pnpm --filter @bc/client build
+cross-env SERVE_STATIC=1 pnpm --filter @bc/server start
+Create session with economy (server running on 3000):
+PowerShell:
+$body = @{ enabledExpansions = @('economy'); players = @(@{ id='p1'; name='Player 1' }, @{ id='p2'; name='Player 2' }) } | ConvertTo-Json
+Invoke-RestMethod -Method POST -Uri http://localhost:3000/api/session -ContentType 'application/json' -Body $body
+curl:
+curl -s -X POST http://localhost:3000/api/session -H "Content-Type: application/json" -d "{ \"enabledExpansions\":[\"economy\"], \"players\":[{\"id\":\"p1\"},{\"id\":\"p2\"}] }"
+If you want, I can add a minimal server test for influence interactions next (create session → place → placeInfluence → assert snapshot.influenceByCoord) and tidy the CHANGELOG “turn phases” paragraph formatting.
+
