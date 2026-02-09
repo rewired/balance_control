@@ -8,3 +8,5 @@ export function loadAvailableExpansions(): ExpansionModule[] {
   const needsDep: ExpansionModule = { id: 'needsdep', version: '0.0.0', requires: ['dep'], register: () => {} };
   return [fakeEmpty, needsDep, economyExpansion];
 }
+
+

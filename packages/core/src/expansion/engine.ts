@@ -1,5 +1,6 @@
 import { z, type ZodTypeAny } from 'zod';
 import { pruneExpiredEffects } from '../effects';
+import { resetMeasureRoundFlags } from '../measures/helpers';
 import type { ActionEnvelope, GameConfig, GameSnapshot, PlacedTile, ResourceDef } from '../protocol';
 import { GameSnapshotSchema } from '../protocol';
 import type { EngineRegistries, EngineOptions } from './types';
@@ -155,10 +156,7 @@ export function createEngine(options: EngineOptions): Engine {
         for (const k of Object.keys(exts).sort()) {
           const ext = exts[k];
           if (ext && typeof ext === 'object' && ext.measures && typeof ext.measures === 'object') {
-            try {
-              const { resetMeasureRoundFlags } = require('../measures/helpers');
-              ext.measures = resetMeasureRoundFlags(ext.measures);
-            } catch {}
+            ext.measures = resetMeasureRoundFlags(ext.measures);
           }
         }
         newState = { ...newState, extensions: exts };

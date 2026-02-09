@@ -1,4 +1,4 @@
-# Changelog
+ï»¿# Changelog
 
 ### 2026-02-09
 
@@ -32,7 +32,7 @@ Additional notes on 2026-02-09:
 * Added player and turn system to core (`players`, `activePlayerIndex`, `turn`).
 * Added first base-game action `core.passTurn` with validation (only active player may act) and deterministic turn advance.
 * Server: extended `POST /api/session` to accept `players` (min 2, max 6); defaults to 2 placeholders when omitted; enforces `actorId` membership (`ACTOR_NOT_ALLOWED`).
-* Client: debug UI now shows players, highlights active player, displays turn number, and provides a “Pass turn” button.
+* Client: debug UI now shows players, highlights active player, displays turn number, and provides a ï¿½Pass turnï¿½ button.
 * Notes: Foundation for all future gameplay actions. Turn logic lives in core; server remains the authority and must not override it.
 ### 2026-02-09 (board + placeTile)
 * Added axial hex coordinate model and board state in core (board.cells as JSON-stable entry array `{ key, tile }`).
@@ -63,3 +63,12 @@ Additional notes on 2026-02-09:
 * Added explicit round model: round, turnInRound, roundStartPlayerIndex; wired to passTurn.
 * Added minimal effect layer with deterministic expiry (atTurn/atRound/atNextTurnOfPlayerId) and blocking via hooks; tests included.
 * Implemented deterministic measure scaffold helpers (init/take/play/refill/clear) with hand/round/card caps and single recycle; tests included.
+
+- Measure contract (0013 foundation): Added stable core helpers (createMeasureState/takeMeasure/playMeasure/resetMeasureRoundFlags), introduced a test-only measures expansion to prove plug-and-play without core changes, removed a risky runtime require in engine (static import now), and validated engine-owned round reset across all extensions.
+
+## 2026-02-09
+
+- Core: replaced runtime require('../measures/helpers') in packages/core/src/expansion/engine.ts with a static import and removed try/catch swallowing; round reset now calls esetMeasureRoundFlags directly.
+- Added test-only expansion package @bc/exp-test-measures proving the Core Measure API (createMeasureState/takeMeasure/playMeasure/resetMeasureRoundFlags) works plug-and-play without changing core.
+- Added contract test verifying engine-level round reset clears per-round measure flags for extensions with a measures state.
+- Server: kept expansion list production-only (no test expansion wired in server loader).

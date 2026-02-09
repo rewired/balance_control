@@ -1,0 +1,27 @@
+﻿{
+    "name":  "@bc/exp-test-measures",
+    "version":  "0.0.1",
+    "private":  true,
+    "type":  "module",
+    "main":  "dist/index.js",
+    "types":  "dist/index.d.ts",
+    "exports":  {
+                    ".":  {
+                              "types":  "./dist/index.d.ts",
+                              "default":  "./dist/index.js"
+                          }
+                },
+    "scripts":  {
+                    "build":  "tsc -p tsconfig.json",
+                    "test":  "pnpm --filter @bc/core build \u0026\u0026 pnpm --filter @bc/exp-economy build \u0026\u0026 vitest run --dir src --reporter verbose"
+                },
+    "dependencies":  {
+                         "@bc/core":  "workspace:*",
+                         "zod":  "^3.23.8"
+                     },
+    "devDependencies":  {
+                            "typescript":  "^5.9.3",
+                            "vitest":  "^4.0.18",
+                            "@bc/exp-economy":  "workspace:*"
+                        }
+}
