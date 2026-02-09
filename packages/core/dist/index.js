@@ -1,3 +1,3 @@
 export * from './protocol';
-export * from './engine';
+export { createEngine } from './expansion/engine';
 //# sourceMappingURL=index.js.map

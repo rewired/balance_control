@@ -3,43 +3,49 @@ import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
-import { ActionEnvelopeSchema, GameSnapshotSchema, applyAction, createInitialState } from '@bc/core';
+import { ActionEnvelopeSchema, GameSnapshotSchema, createEngine } from '@bc/core';
+import { loadAvailableExpansions } from './expansions';
 export const sessionStore = new Map();
+const engine = createEngine({ expansions: loadAvailableExpansions() });
 export function createApp() {
     const app = express();
     app.use(express.json());
-    app.get('/health', (_req, res) => {
-        res.json({ ok: true });
-    });
-    // Create a new session; optional list of enabled expansions.
+    app.get('/health', (_req, res) => { res.json({ ok: true }); });
     const CreateSessionSchema = z.object({ enabledExpansions: z.array(z.string()).optional() });
     app.post('/api/session', (req, res) => {
         const parsed = CreateSessionSchema.safeParse(req.body ?? {});
         if (!parsed.success) {
             return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid body', details: parsed.error.flatten() });
         }
+        const requested = parsed.data.enabledExpansions ?? [];
+        const all = loadAvailableExpansions();
+        const available = new Map(all.map(e => [e.id, true]));
+        for (const id of requested) {
+            if (!available.has(id))
+                return res.status(400).json({ code: 'EXPANSION_NOT_FOUND', message: `Unknown expansion id: ${id}` });
+        }
+        const deps = new Map(all.map(e => [e.id, e.requires ?? []]));
+        for (const id of requested) {
+            for (const r of (deps.get(id) ?? [])) {
+                if (!requested.includes(r))
+                    return res.status(400).json({ code: 'EXPANSION_DEPENDENCY_MISSING', message: `Missing dependency: ${id} requires ${r}` });
+            }
+        }
         const sessionId = nanoid();
-        const snapshot = createInitialState({ sessionId, mode: 'hotseat', enabledExpansions: parsed.data.enabledExpansions ?? [] });
+        const snapshot = engine.createInitialSnapshot({ sessionId, mode: 'hotseat', enabledExpansions: requested });
         sessionStore.set(sessionId, snapshot);
         res.json({ sessionId });
     });
     const httpServer = createServer(app);
-    const io = new Server(httpServer, {
-        cors: { origin: true },
-    });
+    const io = new Server(httpServer, { cors: { origin: true } });
     io.on('connection', (socket) => {
-        // On connect, send a basic hello with version/capabilities.
         socket.emit('server:hello', { version: '0.0.0', capabilities: ['snapshot', 'actions'] });
         socket.on('client:join', ({ sessionId }) => {
             const snapshot = sessionStore.get(sessionId);
-            if (!snapshot) {
-                socket.emit('server:error', { code: 'SESSION_NOT_FOUND', message: 'Session not found' });
-                return;
-            }
+            if (!snapshot)
+                return void socket.emit('server:error', { code: 'SESSION_NOT_FOUND', message: 'Session not found' });
             void socket.join(sessionId);
-            // Validate snapshot before sending (defensive during development).
-            const checked = GameSnapshotSchema.parse(snapshot);
-            socket.emit('server:snapshot', checked);
+            socket.emit('server:snapshot', GameSnapshotSchema.parse(snapshot));
         });
         socket.on('client:dispatch', (payload) => {
             const parsed = ActionEnvelopeSchema.safeParse(payload);
@@ -53,18 +59,17 @@ export function createApp() {
                 socket.emit('server:error', { code: 'SESSION_NOT_FOUND', message: 'Session not found' });
                 return;
             }
-            const res = applyAction(snapshot, action);
+            const res = engine.applyAction(snapshot, action);
             if (!res.ok) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 socket.emit('server:error', { code: res.error.code, message: res.error.message });
                 return;
             }
             const next = res.next;
             sessionStore.set(action.sessionId, next);
             io.to(action.sessionId).emit('server:snapshot', GameSnapshotSchema.parse(next));
-            // Additionally emit each event as a stream item.
-            for (const e of res.events) {
+            for (const e of res.events)
                 io.to(action.sessionId).emit('server:event', e);
-            }
         });
     });
     return { app, httpServer, io };

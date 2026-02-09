@@ -1,30 +1,31 @@
-{
-    "name": "@bc/server",
-    "version": "0.0.0",
-    "private": true,
-    "type": "module",
-    "main": "dist/main.js",
-    "scripts": {
-        "dev": "tsx watch src/main.ts",
-        "build": "tsc -p tsconfig.json",
-        "start": "node dist/main.js",
-        "test": "vitest run",
-        "lint": "eslint ."
-    },
-    "dependencies": {
-        "@bc/core": "workspace:*",
-        "express": "^4.22.1",
-        "nanoid": "^5.1.6",
-        "socket.io": "^4.8.3",
-        "zod": "^4.3.6"
-    },
-    "devDependencies": {
-        "@types/express": "^4.17.25",
-        "@types/supertest": "^6.0.3",
-        "eslint": "^9.15.0",
-        "supertest": "^7.2.2",
-        "tsx": "^4.21.0",
-        "typescript": "^5.9.3",
-        "vitest": "^4.0.18"
-    }
+﻿{
+    "name":  "@bc/server",
+    "version":  "0.0.0",
+    "private":  true,
+    "type":  "module",
+    "main":  "dist/main.js",
+    "scripts":  {
+                    "dev":  "tsx watch src/main.ts",
+                    "build":  "tsc -p tsconfig.json",
+                    "start":  "node dist/main.js",
+                    "test":  "vitest run",
+                    "lint":  "eslint ."
+                },
+    "dependencies":  {
+                         "@bc/core":  "workspace:*",
+                         "express":  "^4.22.1",
+                         "nanoid":  "^5.1.6",
+                         "socket.io":  "^4.8.3",
+                         "zod":  "^4.3.6",
+                         "@bc/exp-economy":  "workspace:*"
+                     },
+    "devDependencies":  {
+                            "@types/express":  "^4.17.25",
+                            "@types/supertest":  "^6.0.3",
+                            "eslint":  "^9.15.0",
+                            "supertest":  "^7.2.2",
+                            "tsx":  "^4.21.0",
+                            "typescript":  "^5.9.3",
+                            "vitest":  "^4.0.18"
+                        }
 }

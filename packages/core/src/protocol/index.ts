@@ -14,7 +14,7 @@ export const ActionEnvelopeSchema = z.object({
 export type ActionEnvelope = z.infer<typeof ActionEnvelopeSchema>;
 
 export const ServerErrorSchema = z.object({
-  code: z.enum(['VALIDATION_ERROR', 'UNKNOWN_ACTION', 'SESSION_NOT_FOUND', 'NOT_AUTHORIZED']),
+  code: z.enum(['VALIDATION_ERROR', 'UNKNOWN_ACTION', 'SESSION_NOT_FOUND', 'NOT_AUTHORIZED', 'EXPANSION_NOT_ENABLED', 'EXPANSION_NOT_FOUND', 'EXPANSION_DEPENDENCY_MISSING', 'ACTION_SCHEMA_NOT_REGISTERED']),
   message: z.string(),
   details: z.unknown().optional(),
 });

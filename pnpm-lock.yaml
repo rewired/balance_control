@@ -87,6 +87,9 @@ importers:
       '@bc/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@bc/exp-economy':
+        specifier: workspace:*
+        version: link:../../packages/exp-economy
       express:
         specifier: ^4.22.1
         version: 4.22.1
@@ -127,6 +130,25 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
+    devDependencies:
+      eslint:
+        specifier: ^9.15.0
+        version: 9.39.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@25.2.2)(tsx@4.21.0)
+
+  packages/exp-economy:
+    dependencies:
+      '@bc/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       eslint:
         specifier: ^9.15.0
@@ -2364,6 +2386,9 @@ packages:
     engines: {node: '>=18.0.0'}
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
+
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
@@ -4804,5 +4829,7 @@ snapshots:
   zod-validation-error@4.0.2(zod@4.3.6):
     dependencies:
       zod: 4.3.6
+
+  zod@3.25.76: {}
 
   zod@4.3.6: {}
