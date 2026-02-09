@@ -85,3 +85,40 @@ This runs install (frozen lockfile), rebuilds `esbuild` if needed, then recursiv
    - Click "Create session" → expect a new sessionId to appear.
    - Observe connection status "connected" and hello banner.
    - Click "Send noop action" → revision increments and a log entry appears.
+
+## Turn Flow (Rules v1.0.9 — 7.1/7.2)
+The core engine enforces a strict turn pipeline with no tile hands.
+
+- Phase order: `awaitingPlacement` → `awaitingAction` → `awaitingPass`.
+- Draw (7.1):
+  - Dispatch `core.drawTile` at the start of your turn (only in `awaitingPlacement`).
+  - Engine scans the supply from the current `drawIndex`:
+    - If the top tile is globally unplaceable, it is moved openly to `state.supply.openDiscard` and the next tile is checked immediately.
+    - First placeable tile is stored in `state.pendingPlacementTile` and `drawIndex` advances.
+    - If no placeable tile is found (supply exhausted), the engine sets `pendingPlacementTile = null` and moves to `awaitingAction` (7.1 entfällt).
+- Place (7.1):
+  - Dispatch `core.placeTile` with `{ coord }` to place the current `pendingPlacementTile`.
+  - No tile id is required/accepted; politics tiles never enter a hand.
+  - Placement legality: first tile may be anywhere; otherwise the coord must be adjacent to an existing tile (default behavior; expansions may further restrict via hooks).
+  - On success, `pendingPlacementTile` is cleared and phase → `awaitingAction`.
+- Action (7.2):
+  - Perform exactly one political action (e.g., `core.placeInfluence` or `core.moveInfluence`). On success, phase → `awaitingPass`.
+- Pass:
+  - Dispatch `core.passTurn` to end the turn. Turn increments, active player advances. On wrap to round start, per‑round measure flags are reset; expiring effects are pruned deterministically.
+
+Client integration notes:
+- Allowed actions by phase:
+  - `awaitingPlacement`: `core.drawTile` (once, loops internally) and then `core.placeTile`.
+  - `awaitingAction`: one of the political actions (e.g., `core.placeInfluence`, `core.moveInfluence`).
+  - `awaitingPass`: only `core.passTurn`.
+- State shape (relevant fields):
+  - `state.supply = { tiles, drawIndex, openDiscard }`
+  - `state.pendingPlacementTile: Tile | null`
+  - No `hands` for politics tiles. (Measure cards remain separate and unaffected.)
+- Error codes to expect: `ACTION_NOT_ALLOWED_IN_PHASE`, `CELL_OCCUPIED`, `DUPLICATE_TILE_ID`, `HOOK_REJECTED`.
+
+Example turn (happy path):
+1) `core.drawTile` → engine sets `pendingPlacementTile`.
+2) `core.placeTile` with `{ coord: { q, r } }` → tile placed, phase → `awaitingAction`.
+3) `core.placeInfluence` (or `core.moveInfluence`) → phase → `awaitingPass`.
+4) `core.passTurn` → next player, phase → `awaitingPlacement`.
