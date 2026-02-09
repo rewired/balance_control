@@ -96,7 +96,7 @@ export function createEngine(options: EngineOptions): Engine {
       state: {
         players,
         activePlayerIndex: 0,
-        activePlayerId: plist[0]?.id,
+        activePlayerId: players[0]?.id,
         phase: 'awaitingPlacement',
         round: 1,
         turnInRound: 1,
@@ -300,6 +300,7 @@ export function createEngine(options: EngineOptions): Engine {
 
   return { registries, createInitialSnapshot, applyAction };
 }
+
 
 
 
