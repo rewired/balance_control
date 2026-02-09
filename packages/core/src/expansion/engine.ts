@@ -4,8 +4,7 @@ import { resetMeasureRoundFlags } from '../measures/helpers';
 import type { ActionEnvelope, GameConfig, GameSnapshot, PlacedTile, ResourceDef } from '../protocol';
 import { GameSnapshotSchema } from '../protocol';
 import type { EngineRegistries, EngineOptions } from './types';
-import { buildEngineRegistries } from './registry';
- { isAdjacentToAny } from '../coord';
+import { buildEngineRegistries } from './registry';\nimport { isAdjacentToAny } from '../coord';
 
 export type EngineErrorCode =
   | 'UNKNOWN_ACTION'
