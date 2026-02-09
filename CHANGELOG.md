@@ -58,3 +58,8 @@ Additional notes on 2026-02-09:
 * Client: debug UI now shows influence per tile, place/move controls, and majority readout.
 * Tests: basic influence and majority tests in @bc/core.
 * Notes: groundwork only (no hotspots/scoring/noise), server remains authoritative.
+### 2026-02-09 (measures/hooks/effects/rounds)
+* Activated hook pipeline in engine (onBeforeActionValidate ? schema validate ? gates ? onValidateAction ? reducers ? onApplyAction ? finalize ? onAfterAction ? onSnapshot). Hooks tested.
+* Added explicit round model: round, turnInRound, roundStartPlayerIndex; wired to passTurn.
+* Added minimal effect layer with deterministic expiry (atTurn/atRound/atNextTurnOfPlayerId) and blocking via hooks; tests included.
+* Implemented deterministic measure scaffold helpers (init/take/play/refill/clear) with hand/round/card caps and single recycle; tests included.

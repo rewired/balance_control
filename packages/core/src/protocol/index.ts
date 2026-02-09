@@ -93,6 +93,13 @@ export const GameStateSchema = z.object({
   // Turn phase lifecycle: awaitingPlacement -> awaitingAction -> awaitingPass
   // Enforces one placement per turn, then at most one other action, then mandatory pass.
   phase: z.enum(["awaitingPlacement","awaitingAction","awaitingPass"]),
+  // Round model in addition to absolute turn counter.
+  // round starts at 1 and increments when the active player wraps to the round start player.
+  round: z.number().int().positive().default(1),
+  // turnInRound counts 1..N across players for the current round; resets to 1 on new round.
+  turnInRound: z.number().int().positive().default(1),
+  // Index of the player who started the current round (stable within a round).
+  roundStartPlayerIndex: z.number().int().nonnegative().default(0),
   // Turn invariants:
   // - Exactly one active player at all times (players.length >= 1 => 0 <= activePlayerIndex < players.length).
   // - activePlayerIndex always valid.
@@ -112,6 +119,18 @@ export const GameStateSchema = z.object({
   // Influence markers per tile: key is CoordKey (q,r), value is per-player counts.
   // Invariants: counts are integers in [0,3]; entries only for existing tiles.
   influenceByCoord: z.record(z.string(), z.record(z.string(), z.number().int().min(0).max(3))).default({}),
+  // Active effects (minimal layer). Effects are evaluated deterministically and expired by engine ticks.
+  effects: z.array(z.object({
+    id: z.string(),
+    source: z.object({ kind: z.enum(['measure','overlay','system']), ref: z.string().optional() }),
+    ownerPlayerId: z.string().optional(),
+    createdAtTurn: z.number().int().positive(),
+    expires: z.object({ atTurn: z.number().int().positive().optional(), atRound: z.number().int().positive().optional(), atNextTurnOfPlayerId: z.string().optional() }),
+    modifiers: z.object({
+      blockActionTypes: z.array(z.string()).optional(),
+      costDeltaByResourceId: z.record(z.string(), z.number().int()).optional(),
+    }).optional(),
+  })).default([]),
   // Tile supply and per-player hands. Invariants:
   // - drawIndex in [0, tiles.length]
   // - a tile id exists in exactly one location (undrawn supply, some player's hand, or board)

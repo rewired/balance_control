@@ -1,3 +1,5 @@
+import { pruneExpiredEffects } from '../effects';
+
 import { z, type ZodTypeAny } from 'zod';
 import type { ActionEnvelope, GameConfig, GameSnapshot, PlacedTile, ResourceDef } from '../protocol';
 import { GameSnapshotSchema } from '../protocol';
@@ -90,7 +92,7 @@ export function createEngine(options: EngineOptions): Engine {
         players,
         activePlayerIndex: 0,
         activePlayerId: players[0]?.id,
-        phase: 'awaitingPlacement',
+        phase: 'awaitingPlacement', round: 1, turnInRound: 1, roundStartPlayerIndex: 0,
         turn: 1,
         board: { cells: [] },
         resources: { registry: resourcesRegistry },
@@ -98,6 +100,9 @@ export function createEngine(options: EngineOptions): Engine {
         influenceByCoord: {},
         supply: { tiles, drawIndex },
         hands: handsInit,
+
+        effects: [],
+
         extensions: {},
       },
       log: [],
@@ -126,9 +131,15 @@ export function createEngine(options: EngineOptions): Engine {
     if (req && !snapshot.config.enabledExpansions.includes(req)) {
       return { ok: false as const, error: { code: 'EXPANSION_NOT_ENABLED' as EngineErrorCode, message: `Expansion not enabled: ${req}` } };
     }
-    const parsed = (schema as { payload: ZodTypeAny }).payload.safeParse(action.payload);
-    if (!parsed.success) {
-      return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'Invalid payload', details: parsed.error.flatten() } };
+    const parsed = (schema as { payload: ZodTypeAny }).payload.safeParse(action.payload); if (!parsed.success) { return { ok: false as const, error: { code: 'VALIDATION_ERROR' as EngineErrorCode, message: 'Invalid payload', details: (parsed as any).error?.flatten?.() } }; }
+
+    // onBeforeActionValidate hooks
+
+    for (const h of registries.hooks.onBeforeActionValidate) { try { (h as any)(snapshot, action); } catch {} }
+
+    // onValidateAction can veto
+
+    for (const h of registries.hooks.onValidateAction) { const r = (h as any)(snapshot, action); if (r && (r as any).reject) { const rej = (r as any).reject; return { ok: false as const, error: { code: (rej.code ?? 'HOOK_REJECTED') as EngineErrorCode, message: rej.message ?? 'Rejected by hook', details: rej.details } }; } }
     }
 
     // Allow noop for diagnostics regardless of phase.
@@ -158,7 +169,22 @@ export function createEngine(options: EngineOptions): Engine {
         return { ok: false as const, error: { code: 'WRONG_TURN_PHASE' as EngineErrorCode, message: 'Pass is only allowed in awaitingPass' } };
       }
       const nextIndex = (activeIndex + 1) % players.length;
+
       const at = Date.now();
+
+      // Round bookkeeping
+
+      const round = (snapshot.state as any).round ?? 1;
+
+      const turnInRound = (snapshot.state as any).turnInRound ?? 1;
+
+      const roundStartPlayerIndex = (snapshot.state as any).roundStartPlayerIndex ?? 0;
+
+      const wrapped = nextIndex === roundStartPlayerIndex;
+
+      const nextRound = wrapped ? (round + 1) : round;
+
+      const nextTir = wrapped ? 1 : (turnInRound + 1);
       // Deterministic resource resolution for the passing player
       const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> };
       const sorted = [...board.cells].sort((a,b)=>a.key.localeCompare(b.key));
@@ -186,11 +212,18 @@ export function createEngine(options: EngineOptions): Engine {
         ...snapshot,
         revision: snapshot.revision + 1,
         updatedAt: at,
-        state: { ...snapshot.state, resourcesByPlayerId: { ...pools, [active.id]: current }, activePlayerIndex: nextIndex, activePlayerId: players[nextIndex]?.id, phase: 'awaitingPlacement', turn: (snapshot.state.turn as number) + 1 },
+        state: { ...snapshot.state, resourcesByPlayerId: { ...pools, [active.id]: current }, activePlayerIndex: nextIndex, activePlayerId: players[nextIndex]?.id, phase: 'awaitingPlacement', round: 1, turnInRound: 1, roundStartPlayerIndex: 0, turn: (snapshot.state.turn as number) + 1 },
         log: [...snapshot.log, resEntry, passEntry],
       };
-      GameSnapshotSchema.parse(next);
-      return { ok: true as const, next, events: [resEntry, passEntry] };
+      // prune effects when new active player becomes active
+
+      const pruned = pruneExpiredEffects(next.state as any, (next.state as any).activePlayerId);
+
+      const next2 = { ...next, state: pruned } as GameSnapshot;
+
+      GameSnapshotSchema.parse(next2);
+
+      return { ok: true as const, next: next2, events: [resEntry, passEntry] };
     }
 
     if (action.type === 'core.drawTile') {
