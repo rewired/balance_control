@@ -6,7 +6,6 @@ import { GameSnapshotSchema } from '../protocol';
 import type { EngineRegistries, EngineOptions } from './types';
 import { buildEngineRegistries } from './registry';
 import { isAdjacentToAny } from '../coord';
- { isAdjacentToAny } from '../coord';
 
 export type EngineErrorCode =
   | 'UNKNOWN_ACTION'
