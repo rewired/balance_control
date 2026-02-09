@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
-import { ActionEnvelopeSchema, GameSnapshotSchema, createEngine, getControlLeaderId, computeMajority } from '@bc/core';
+import { ActionEnvelopeSchema, GameSnapshotSchema, createEngine, getControlLeaderId, computeMajority, finalizeGame } from '@bc/core';
 import type { ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData, GameState } from '@bc/core';
 import { loadAvailableExpansions } from './expansions';
 
@@ -127,8 +127,30 @@ export function createApp() {
     });
   });
 
+  
+  // Finalize endpoint: apply final settlement and broadcast snapshot
+  app.post('/api/finalize', (req, res) => {
+    const Body = z.object({ sessionId: z.string() });
+    const parsed = Body.safeParse(req.body ?? {});
+    if (!parsed.success) { return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid body', details: parsed.error.flatten() }); }
+    const snap = sessionStore.get(parsed.data.sessionId);
+    if (!snap) { return res.status(404).json({ code: 'SESSION_NOT_FOUND', message: 'Session not found' }); }
+    try {
+      const next = finalizeGame(snap, engine.registries);
+      sessionStore.set(parsed.data.sessionId, next);
+      io.to(parsed.data.sessionId).emit('server:snapshot', GameSnapshotSchema.parse(next));
+      return res.json({ ok: true });
+    } catch (err) {
+      return res.status(400).json({ code: 'VALIDATION_ERROR', message: (err as Error)?.message ?? 'finalize failed' });
+    }
+  });
   return { app, httpServer, io };
 }
+
+
+
+
+
 
 
 

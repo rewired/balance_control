@@ -10,7 +10,7 @@ describe('board + core.placeTile', () => {
     const engine = createEngine({ expansions: [] });
     let snap = engine.createInitialSnapshot({ sessionId: 's1', mode: 'hotseat', enabledExpansions: [], seed: 'seed-a', players });
     // draw pending tile for placement
-    let r = engine.applyAction(snap, { sessionId: 's1', actionId: 'd1', type: 'core.drawTile', payload: {}, actorId: 'p1' } as any);
+    const r = engine.applyAction(snap, { sessionId: 's1', actionId: 'd1', type: 'core.drawTile', payload: {}, actorId: 'p1' } as any);
     if (!r.ok) throw new Error('draw failed');
     snap = r.next;
     const action: ActionEnvelope = { sessionId: 's1', actionId: 't1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 } }, actorId: 'p1' } as any;
@@ -57,4 +57,6 @@ describe('board + core.placeTile', () => {
     expect(Array.isArray(back.state.board.cells)).toBe(true);
   });
 });
+
+
 
