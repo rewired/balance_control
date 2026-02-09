@@ -220,3 +220,97 @@ Do not rewrite previous entries.
 4. Exact commands
 
 ---
+
+Summary
+
+Implemented strict turn phases in core: awaitingPlacement → awaitingAction → awaitingPass, and enforced the invariant “place exactly one tile, optionally one other action, then pass”.
+Added phase field to snapshot state and mirrored activePlayerId for convenience.
+Updated core actions:
+core.placeTile: allowed only in awaitingPlacement; transitions to awaitingAction.
+core.drawTile: allowed only in awaitingAction; transitions to awaitingPass.
+core.passTurn: allowed only in awaitingPass; advances active player, increments turn, and resets phase to awaitingPlacement.
+Added new machine-readable errors: WRONG_TURN_PHASE, PLACEMENT_ALREADY_DONE, ACTION_NOT_ALLOWED_IN_PHASE.
+Deterministic initial hand: on session creation, core deals 1 tile to each player from supply to allow first-turn placement.
+Client debug UI shows current phase and activePlayerId, and disables/enables Place/Draw/Pass buttons based on phase.
+Server remains pass-through/authoritative; added server-side tests for phase enforcement and updated placement test for initial-hand flow.
+Cleaned up temp files: removed tmp_edit_engine.ts and temp_proto_debug.txt.
+All core tests updated for new sequencing; server tests green; lint and build pass.
+Files Touched/Removed
+
+Updated
+packages/core/src/protocol/index.ts
+Added phase schema, optional activePlayerId, and new error codes.
+packages/core/src/expansion/engine.ts
+Phase enforcement in applyAction; initial hands dealt in createInitialSnapshot; comments added.
+packages/core/src/engine.ts
+Stub state updated with phase and activePlayerId to satisfy schema.
+packages/core/src/board.test.ts
+Adjusted for turn phases (occupied cell tested across turn); simplified to three tests.
+packages/core/src/supply.test.ts
+Adjusted for turn phases; added deterministic errors with correct phase; removed brittle flows.
+packages/core/src/turn.test.ts
+Updated pass-turn test to place → draw → pass per player.
+packages/core/src/phase.test.ts
+New test for basic phase enforcement.
+apps/server/src/phase.test.ts
+New server test validating phase errors on wrong-phase actions.
+apps/server/src/placement.test.ts
+Uses initial hand; removed pre-place draw.
+apps/client/src/App.tsx
+Shows phase and activePlayerId; buttons gated by phase; typed snapshot reads; minimized any usage.
+apps/server/package.json
+(earlier) Scoped tests to src to avoid dist duplicates.
+apps/server/tsconfig.json
+(earlier) Excluded dist/ and test files from build.
+eslint.config.js
+(earlier) Test-only rule relaxer; ensured lint passes after changes.
+CHANGELOG.md
+Added dated entry describing phases, enforcement, client UI, server tests, and cleanup of temp files.
+Added
+packages/core/src/phase.test.ts
+apps/server/src/phase.test.ts
+docs/tasks/0008-turn-structure-and-cleanup-temp-files.md (task record)
+Removed (cleanup)
+tmp_edit_engine.ts
+temp_proto_debug.txt
+Manual Verification Steps
+
+Install and build
+pnpm install
+pnpm -r build
+Run tests and lint
+pnpm -r test
+pnpm -r lint
+Run dev (two terminals)
+Terminal A: pnpm --filter @bc/server dev
+Terminal B: pnpm --filter @bc/client dev
+In the client:
+Click “Create session”.
+Confirm phase shows “awaitingPlacement”, and activePlayerId is the first player.
+Place tile: select from Active hand, set q=0,r=0, click “Place tile”. Phase becomes “awaitingAction”; board lists the new cell.
+Draw tile: click “Draw tile”. Phase becomes “awaitingPass”.
+Pass turn: click “Pass turn”. Active player advances; turn increments; phase returns to “awaitingPlacement”.
+Try to draw before placing on a new turn → error (ACTION_NOT_ALLOWED_IN_PHASE).
+Try to pass before drawing after a placement → error (WRONG_TURN_PHASE).
+Try to place again in the same turn → error (PLACEMENT_ALREADY_DONE).
+Server behavior:
+Ensure Socket.IO errors mirror codes from core for wrong-phase attempts.
+POST /api/session returns sessionId; first snapshot includes config.seed and hands (each with 1 tile).
+Exact Commands
+
+Install/build/test/lint
+pnpm install
+pnpm -r build
+pnpm -r test
+pnpm -r lint
+Dev servers
+pnpm --filter @bc/server dev
+pnpm --filter @bc/client dev
+Full preview (optional)
+pnpm preview:full
+Notes and rationale:
+
+Turn phases are enforced in core (single source of truth). Server only validates envelopes and broadcasts results; it does not override phases or advance turns.
+Initial tile deal ensures turn 1 is playable given new sequencing (place must come before draw). This is documented in engine comments.
+Client intentionally remains a minimal debug surface; no new UX beyond phase indicators and disabled controls.
+Cleanups: Removed tmp_edit_engine.ts (local scratch) and temp_proto_debug.txt (throwaway transcript) to keep repo tidy; recorded in CHANGELOG.
