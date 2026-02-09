@@ -34,7 +34,7 @@ describe('effects expiry and blocking', () => {
     s = r.next;
 
     // p2 quick turn
-    r = engine.applyAction(s, { sessionId: 's', actionId: 'd2', type: 'core.drawTile', payload: {}, actorId: 'p2' } as any); if (!r.ok) throw new Error('p2 draw');
+    r = engine.applyAction(s, { sessionId: 's', actionId: 'd2', type: 'core.drawTile', payload: {}, actorId: 'p2' } as any); if (!r.ok) throw new Error('p2 draw blocked?');
     r = engine.applyAction(r.next, { sessionId: 's', actionId: 'p2', type: 'core.placeTile', payload: { coord: { q: 1, r: 0 } }, actorId: 'p2' } as any); if (!r.ok) throw new Error('p2 place');
     r = engine.applyAction(r.next, { sessionId: 's', actionId: 'i2', type: 'core.placeInfluence', payload: { coord: { q: 1, r: 0 }, amount: 1 }, actorId: 'p2' } as any); if (!r.ok) throw new Error('p2 act');
     r = engine.applyAction(r.next, { sessionId: 's', actionId: 'x2', type: 'core.passTurn', payload: {}, actorId: 'p2' } as any); if (!r.ok) throw new Error('p2 pass');
@@ -52,4 +52,5 @@ describe('effects expiry and blocking', () => {
     expect(ok.ok).toBe(true);
   });
 });
+
 
