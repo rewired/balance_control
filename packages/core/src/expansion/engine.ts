@@ -162,7 +162,7 @@ export function createEngine(options: EngineOptions): Engine {
 
     if (action.type === 'core.passTurn') {
       if (phase !== 'awaitingPass') { return { ok: false as const, error: { code: 'WRONG_TURN_PHASE' as EngineErrorCode, message: 'Pass is only allowed in awaitingPass' } }; }
-      const nextIndex = (activeIndex + 1) % players.length;
+      const nextIndex = (activeIndex + 1) % plist.length;
       const roundStartPlayerIndex = (snapshot.state as any).roundStartPlayerIndex as number;
       const nextTurnInRound = nextIndex === roundStartPlayerIndex ? 1 : ((snapshot.state as any).turnInRound as number) + 1;
       const nextRound = nextIndex === roundStartPlayerIndex ? ((snapshot.state as any).round as number) + 1 : (snapshot.state as any).round;
@@ -301,6 +301,7 @@ export function createEngine(options: EngineOptions): Engine {
 
   return { registries, createInitialSnapshot, applyAction };
 }
+
 
 
 
