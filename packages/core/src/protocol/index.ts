@@ -1,4 +1,4 @@
-﻿// Protocol primitives and Zod schemas for runtime validation.
+// Protocol primitives and Zod schemas for runtime validation.
 // Keep this package free of any server/client dependencies.
 import { z } from 'zod';
 
@@ -14,7 +14,18 @@ export const ActionEnvelopeSchema = z.object({
 export type ActionEnvelope = z.infer<typeof ActionEnvelopeSchema>;
 
 export const ServerErrorSchema = z.object({
-  code: z.enum(['VALIDATION_ERROR', 'UNKNOWN_ACTION', 'SESSION_NOT_FOUND', 'NOT_AUTHORIZED', 'EXPANSION_NOT_ENABLED', 'EXPANSION_NOT_FOUND', 'EXPANSION_DEPENDENCY_MISSING', 'ACTION_SCHEMA_NOT_REGISTERED']),
+  code: z.enum([
+    'VALIDATION_ERROR',
+    'UNKNOWN_ACTION',
+    'SESSION_NOT_FOUND',
+    'NOT_AUTHORIZED',
+    'EXPANSION_NOT_ENABLED',
+    'EXPANSION_NOT_FOUND',
+    'EXPANSION_DEPENDENCY_MISSING',
+    'ACTION_SCHEMA_NOT_REGISTERED',
+    'ACTOR_NOT_ALLOWED',
+    'NOT_ACTIVE_PLAYER',
+  ]),
   message: z.string(),
   details: z.unknown().optional(),
 });
@@ -34,8 +45,24 @@ export const GameConfigSchema = z.object({
 });
 export type GameConfig = z.infer<typeof GameConfigSchema>;
 
+// Player model kept minimal and future-proof.
+export const PlayerSchema = z.object({
+  id: z.string(),
+  index: z.number().int().nonnegative(),
+  name: z.string().optional(),
+});
+export type Player = z.infer<typeof PlayerSchema>;
+
 export const GameStateSchema = z.object({
-  // Minimal placeholder, expansion ready.
+  // Core turn system state lives here.
+  // Invariants:
+  // - Exactly one active player at all times.
+  // - activePlayerIndex is always valid.
+  // - turn increments only on turn-ending actions.
+  players: z.array(PlayerSchema),
+  activePlayerIndex: z.number().int().nonnegative(),
+  turn: z.number().int().positive(),
+  // Expansion-owned state slots.
   extensions: z.record(z.string(), z.unknown()),
 });
 export type GameState = z.infer<typeof GameStateSchema>;

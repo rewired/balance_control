@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import { nanoid } from 'nanoid';
@@ -16,9 +16,14 @@ export function createApp() {
   const app = express();
   app.use(express.json());
 
-  app.get('/health', (_req, res) => { res.json({ ok: true }); });
+  app.get('/health', (_req, res) => {
+    res.json({ ok: true });
+  });
 
-  const CreateSessionSchema = z.object({ enabledExpansions: z.array(z.string()).optional() });
+  const CreateSessionSchema = z.object({
+    enabledExpansions: z.array(z.string()).optional(),
+    players: z.array(z.object({ id: z.string(), name: z.string().optional() })).min(2).max(6).optional(),
+  });
   app.post('/api/session', (req, res) => {
     const parsed = CreateSessionSchema.safeParse(req.body ?? {});
     if (!parsed.success) {
@@ -26,20 +31,28 @@ export function createApp() {
     }
     const requested = parsed.data.enabledExpansions ?? [];
 
+    // Players: strict validation above; generate defaults when omitted.
+    const players = parsed.data.players && parsed.data.players.length > 0
+      ? parsed.data.players
+      : [
+          { id: 'p1', name: 'Player 1' },
+          { id: 'p2', name: 'Player 2' },
+        ];
+
     const all = loadAvailableExpansions();
-    const available = new Map(all.map(e => [e.id, true as const]));
+    const available = new Map(all.map((e) => [e.id, true as const]));
     for (const id of requested) {
       if (!available.has(id)) return res.status(400).json({ code: 'EXPANSION_NOT_FOUND', message: `Unknown expansion id: ${id}` });
     }
-    const deps = new Map(all.map(e => [e.id, e.requires ?? []]));
+    const deps = new Map(all.map((e) => [e.id, e.requires ?? []]));
     for (const id of requested) {
-      for (const r of (deps.get(id) ?? [])) {
+      for (const r of deps.get(id) ?? []) {
         if (!requested.includes(r)) return res.status(400).json({ code: 'EXPANSION_DEPENDENCY_MISSING', message: `Missing dependency: ${id} requires ${r}` });
       }
     }
 
     const sessionId = nanoid();
-    const snapshot = engine.createInitialSnapshot({ sessionId, mode: 'hotseat', enabledExpansions: requested });
+    const snapshot = engine.createInitialSnapshot({ sessionId, mode: 'hotseat', enabledExpansions: requested, players });
     sessionStore.set(sessionId, snapshot);
     res.json({ sessionId });
   });
@@ -57,7 +70,7 @@ export function createApp() {
       socket.emit('server:snapshot', GameSnapshotSchema.parse(snapshot));
     });
 
-        socket.on('client:dispatch', (payload: unknown) => {
+    socket.on('client:dispatch', (payload: unknown) => {
       const parsed = ActionEnvelopeSchema.safeParse(payload);
       if (!parsed.success) {
         socket.emit('server:error', { code: 'VALIDATION_ERROR', message: 'Invalid action', details: parsed.error.flatten() });
@@ -67,6 +80,13 @@ export function createApp() {
       const snapshot = sessionStore.get(action.sessionId);
       if (!snapshot) {
         socket.emit('server:error', { code: 'SESSION_NOT_FOUND', message: 'Session not found' });
+        return;
+      }
+      // Actor enforcement: actorId must belong to a known session player.
+      const players: Array<{ id: string }> = (snapshot.state as { players: Array<{ id: string }> }).players ?? [];
+      const allowed = players.some((p) => p.id === action.actorId);
+      if (!allowed) {
+        socket.emit('server:error', { code: 'ACTOR_NOT_ALLOWED', message: 'actorId not part of this session' });
         return;
       }
       const res = engine.applyAction(snapshot, action);
@@ -79,7 +99,8 @@ export function createApp() {
       sessionStore.set(action.sessionId, next);
       io.to(action.sessionId).emit('server:snapshot', GameSnapshotSchema.parse(next));
       for (const e of res.events) io.to(action.sessionId).emit('server:event', e);
-    });  });
+    });
+  });
 
   return { app, httpServer, io };
 }
