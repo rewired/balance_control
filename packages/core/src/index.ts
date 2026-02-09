@@ -5,3 +5,4 @@ export { computeMajority, getControlLeaderId, isLobbyistKind } from './majority'
 export * from './measures/types';
 export { createMeasureState, takeMeasure, playMeasure, resetMeasureRoundFlags } from './measures/helpers';
 export * from './expansion/types';
+export { computeRoundSettlement, settleRound } from './settlement';

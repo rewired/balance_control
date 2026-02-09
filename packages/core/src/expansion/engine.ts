@@ -7,6 +7,7 @@ import type { EngineRegistries, EngineOptions } from './types';
 import { buildEngineRegistries } from './registry';
 import { generateSupplyTiles } from '../supply';
 import { isAdjacentToAny } from '../coord';
+import { settleRound } from '../settlement';
 
 export type EngineErrorCode =
   | 'UNKNOWN_ACTION'
@@ -109,6 +110,7 @@ export function createEngine(options: EngineOptions): Engine {
         supply: { tiles, drawIndex: 0, openDiscard: [] },
         pendingPlacementTile: null,
         effects: [],
+        noise: Object.fromEntries(resourcesRegistry.map((r) => [r.id, 0])),
         extensions: {},
       },
       log: [],
@@ -175,6 +177,7 @@ export function createEngine(options: EngineOptions): Engine {
       let newState: any = { ...snapshot.state, resourcesByPlayerId: { ...pools, [active.id]: current }, activePlayerIndex: nextIndex, activePlayerId: plist[nextIndex]?.id, phase: 'awaitingPlacement', round: nextRound, turnInRound: nextTurnInRound, roundStartPlayerIndex, turn: ((snapshot.state as any).turn as number) + 1 };
       if (nextIndex === roundStartPlayerIndex) {
         try { const ex: any = { ...(newState.extensions as any) }; for (const k of Object.keys(ex)) { const ext: any = ex[k]; if (ext && typeof ext === 'object' && 'measures' in ext && ext.measures) { ext.measures = resetMeasureRoundFlags(ext.measures as any); } } newState.extensions = ex; } catch {}
+        try { const settled = settleRound(newState as any); newState = settled.nextState as any; } catch {}
       }
       const pruned = pruneExpiredEffects(newState, plist[nextIndex]?.id);
       const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: pruned, log: [...snapshot.log, passEntry] };
