@@ -147,6 +147,29 @@ export function App() {
               ))}
               {cells.length === 0 && <li>(empty)</li>}
             </ul>
+            <h4>Resources</h4>
+            <h4>Resources</h4>
+            <div>
+              {(() => {
+                const reg: Array<{id: string}> = (((snapshot.state as unknown) as { resources?: { registry: Array<{id:string}> }}).resources?.registry) ?? [];
+                return (
+                  <>
+                    <div><strong>Registry:</strong> {reg.map((r) => r.id).join(', ') || '(none)'}</div>
+                    <div style={{ marginTop: 8 }}>
+                      <strong>Pools</strong>
+                      <ul>
+                        {snapshot.state.players.map((p) => {
+                          const poolMap: Record<string, number> = ((((snapshot.state as unknown) as { resourcesByPlayerId?: Record<string, Record<string, number>> }).resourcesByPlayerId ?? {})[p.id]) ?? {};
+                          return (
+                            <li key={p.id}>{p.name ?? p.id}: {reg.map((r) => r.id + '=' + (poolMap[r.id] ?? 0)).join(', ')}</li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
             <div>
               <label>q: <input type="number" value={q} onChange={(e) => setQ(Number(e.target.value))} /></label>
               <label style={{ marginLeft: 8 }}>r: <input type="number" value={r} onChange={(e) => setR(Number(e.target.value))} /></label>

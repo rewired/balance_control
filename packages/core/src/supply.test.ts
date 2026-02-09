@@ -7,7 +7,7 @@ const players = [ { id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }
 describe('supply + draw + place from hand', () => {
   it('draw moves from supply to hand and increments index', () => {
     const engine = createEngine({ expansions: [] });
-    let snapMutable = engine.createInitialSnapshot({ sessionId: 's1', mode: 'hotseat', enabledExpansions: [], seed: 'seed-1', players });
+    let snapMutable = engine.createInitialSnapshot({ sessionId: 's1', mode: 'hotseat', enabledExpansions: [], seed: 'seed-1', players }); // eslint-disable-line prefer-const
     // Start: awaitingPlacement; place first tile to allow draw
     const first = ((snapMutable.state.hands as any)['p1'] as Array<{ id: string; kind: string }>)[0].id;
     let r = engine.applyAction(snapMutable, { sessionId: 's1', actionId: 'p0', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 }, tileId: first }, actorId: 'p1' } as any);
@@ -81,6 +81,8 @@ describe('supply + draw + place from hand', () => {
     if (!notInHand.ok) expect(notInHand.error.code).toBe('TILE_NOT_IN_HAND');
   });
 });
+
+
 
 
 

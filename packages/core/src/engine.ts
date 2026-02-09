@@ -10,7 +10,19 @@ export function createInitialState(config: GameConfig & { sessionId: string }): 
     createdAt: now,
     updatedAt: now,
     config: { mode: 'hotseat', enabledExpansions: config.enabledExpansions ?? [], seed: (config.seed ?? 'seed') },
-    state: { players: [], activePlayerIndex: 0, activePlayerId: undefined, phase: 'awaitingPlacement', turn: 1, board: { cells: [] }, supply: { tiles: [], drawIndex: 0 }, hands: {}, extensions: {} },
+    state: {
+      players: [],
+      activePlayerIndex: 0,
+      activePlayerId: undefined,
+      phase: 'awaitingPlacement',
+      turn: 1,
+      board: { cells: [] },
+      resources: { registry: [] },
+      resourcesByPlayerId: {},
+      supply: { tiles: [], drawIndex: 0 },
+      hands: {},
+      extensions: {},
+    },
     log: [],
   };
 }
@@ -34,5 +46,3 @@ export function applyAction(current: GameSnapshot, action: ActionEnvelope): Appl
   };
   return { ok: true, next, events: [entry] };
 }
-
-

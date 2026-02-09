@@ -199,3 +199,82 @@ Append entry to root `CHANGELOG.md`:
 4. Exact commands
 
 ---
+
+Summary
+
+Implemented an extensible resource system (0009 baseline) and wired the Economy expansion (0010) end-to-end without core special-casing.
+Core now:
+Adds ResourceDef/registry and per-player resource pools to GameState.
+Extends Tile with production map.
+Resolves production deterministically on core.passTurn and emits a resourceResolution event.
+Provides a generic onSessionCreate hook for expansions to mutate early session state (e.g., supply), expansion-agnostic.
+Economy expansion (@bc/exp-economy) now:
+Registers resource id "economy" (label: "Economy").
+Appends 5 deterministic economy tiles to the initial supply via onSessionCreate (kind "economy-1", production { economy: 1 }).
+No economy-specific logic added to core.
+Server remains pass-through; enabling "economy" includes the resource in-session and the extra tiles.
+Client debug UI shows resource registry and per-player pools so economy is visible.
+All work compiles, tests pass, and lint passes.
+Files Touched
+
+packages/core/src/protocol/index.ts
+Added ResourceId/ResourceDef schemas.
+EventLogEntrySchema: payload?: unknown.
+TileSchema: production: Record<string, number>.
+GameStateSchema: resources, resourcesByPlayerId.
+ServerError: DUPLICATE_RESOURCE_ID.
+packages/core/src/expansion/types.ts
+Added registerResourceDef to ExpansionRegistry.
+EngineRegistries holds resourceDefProviders (Map<string, ResourceDef[]>).
+packages/core/src/expansion/registry.ts
+Collected per-expansion resource defs (resourceDefProviders).
+packages/core/src/expansion/engine.ts
+Base resources (domestic/foreign/media).
+Composes session resource registry from base + enabled expansions.
+Initializes per-player pools.
+Deterministic resource resolution in passTurn with resourceResolution event.
+Generic onSessionCreate hook invocation (agnostic).
+packages/core/src/supply.ts
+Generates production per base-kind: generic-a→domestic, generic-b→foreign, generic-c→media.
+packages/core/src/engine.ts
+Minimal snapshot builder updated with resources scaffolding for type-compat.
+packages/exp-economy/src/index.ts
+Registers ResourceDef("economy").
+Appends economy tiles deterministically on onSessionCreate.
+Existing expansion reducer/state kept intact.
+apps/client/src/App.tsx
+Added Resources section (registry + pools display) using typed projections (no any).
+Minor fixes for lint/stability in core tests.
+Manual Verification Steps
+
+Build, test, lint:
+pnpm -r build
+pnpm -r test
+pnpm -r lint
+Start dev:
+pnpm dev
+In client:
+Create session with enabledExpansions: ["economy"] (client default can be adjusted or POST via API).
+Snapshot panel shows:
+phase and active player
+Resources: Registry lists domestic, foreign, media, economy
+Pools show economy: 0 for all players
+Draw tiles until an economy-1 tile appears (appended at end but deterministic; you’ll encounter as you draw).
+Place economy tile, pass turn:
+resourceResolution event appears
+passing player’s pools show economy incremented by +1
+Negative checks:
+Trying to pass before awaitingPass returns WRONG_TURN_PHASE (server error).
+Non-active actorId rejected (ACTOR_NOT_ALLOWED / NOT_ACTIVE_PLAYER as applicable).
+Exact Commands
+
+Build:
+pnpm -r build
+Test:
+pnpm -r test
+pnpm --filter @bc/server test
+Lint:
+pnpm -r lint
+Dev:
+pnpm dev
+This proves the 0010 goal: enabling "economy" augments the resource registry and supply via a generic-core hook; core resolves all resource ids uniformly; client surfaces registry + pools; and no economy-specific code was added to core.

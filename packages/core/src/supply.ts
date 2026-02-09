@@ -23,16 +23,17 @@ function lcg(seed: number) {
   return () => (x = (a * x + c) >>> 0);
 }
 
-export function generateSupplyTiles(cfg: SupplyGenConfig): { id: string; kind: string }[] {
+export function generateSupplyTiles(cfg: SupplyGenConfig): { id: string; kind: string; production: Record<string, number> }[] {
   const kinds = ['generic-a', 'generic-b', 'generic-c'] as const;
   const n = cfg.count ?? 30; // MVP size
   const rnd = lcg(hashSeed(cfg.seed));
-  const tiles = [] as { id: string; kind: string }[];
+  const tiles = [] as { id: string; kind: string; production: Record<string, number> }[];
   for (let i = 0; i < n; i++) {
     const r = rnd();
     const kind = kinds[r % kinds.length]!;
     const id = `t${(i + 1).toString().padStart(4, '0')}`;
-    tiles.push({ id, kind });
+    { const prodKey = kind === 'generic-a' ? 'domestic' : (kind === 'generic-b' ? 'foreign' : 'media'); tiles.push({ id, kind, production: { [prodKey]: 1 } }); }
   }
   return tiles;
 }
+

@@ -1,8 +1,8 @@
-﻿import type { ActionEnvelope, GameSnapshot } from '../protocol';
+import type { ActionEnvelope, GameSnapshot, ResourceDef } from '../protocol';
 
 export interface ActionSchema {
   type: string;
-  payload: import("zod").ZodTypeAny; // runtime Zod schema
+  payload: import('zod').ZodTypeAny; // runtime Zod schema
   requiresExpansionId?: string;
 }
 
@@ -26,10 +26,17 @@ export interface ExpansionModule {
 
 export interface ExpansionRegistry {
   registerAction(schema: ActionSchema): void;
-  registerReducer(handler: (snapshot: GameSnapshot, action: ActionEnvelope) => { next: GameSnapshot; events?: Array<{ id: string; at: number; kind: string; message: string }> } | null): void;
+  registerReducer(
+    handler: (
+      snapshot: GameSnapshot,
+      action: ActionEnvelope
+    ) => { next: GameSnapshot; events?: Array<{ id: string; at: number; kind: string; message: string }> } | null
+  ): void;
   registerHook(hook: HookName, handler: HookHandler): void;
   registerStateInitializer(initializer: () => unknown): void;
   registerEventMapper?(mapper: (entry: unknown) => unknown): void;
+  // 0009: resource definitions extension point (session-scoped application)
+  registerResourceDef?(def: ResourceDef): void;
 }
 
 export type EngineHooks = { [K in HookName]: HookHandler[] };
@@ -39,6 +46,7 @@ export interface EngineRegistries {
   reducers: ((snapshot: GameSnapshot, action: ActionEnvelope) => { next: GameSnapshot; events?: Array<{ id: string; at: number; kind: string; message: string }> } | null)[];
   hooks: EngineHooks;
   stateInitializers: Map<string, () => unknown>;
+  resourceDefProviders: Map<string, ResourceDef[]>; // per-expansion defs collected during register(); applied per-session
 }
 
 export interface EngineOptions { expansions: ExpansionModule[] }

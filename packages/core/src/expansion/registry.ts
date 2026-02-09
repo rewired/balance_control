@@ -1,4 +1,5 @@
-﻿import type { EngineRegistries,  ExpansionRegistry, HookHandler, HookName, ActionSchema, EngineOptions } from './types';
+import type { ResourceDef } from '../protocol';
+import type { EngineRegistries,  ExpansionRegistry, HookHandler, HookName, ActionSchema, EngineOptions } from './types';
 
 export function createEmptyRegistries(): EngineRegistries {
   return {
@@ -14,6 +15,7 @@ export function createEmptyRegistries(): EngineRegistries {
       onSnapshot: [],
     },
     stateInitializers: new Map<string, () => unknown>(),
+    resourceDefProviders: new Map<string, ResourceDef[]>(),
   };
 }
 
@@ -38,9 +40,12 @@ export function buildEngineRegistries(opts: EngineOptions): EngineRegistries {
         registries.stateInitializers.set(exp.id, initializer);
       },
       registerEventMapper: () => {},
+      registerResourceDef: (def) => { const arr = registries.resourceDefProviders.get(exp.id) ?? []; arr.push(def); registries.resourceDefProviders.set(exp.id, arr); },
     };
 
     exp.register(registry);
   }
   return registries;
 }
+
+

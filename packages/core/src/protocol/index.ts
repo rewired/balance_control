@@ -2,6 +2,12 @@
 // Keep this package free of any server/client dependencies.
 import { z } from 'zod';
 
+// Resource registry: extensible, session-scoped (session snapshot stores enabled resources).
+export type ResourceId = string;
+export const ResourceDefSchema = z.object({ id: z.string(), label: z.string(), iconKey: z.string().optional() });
+export type ResourceDef = z.infer<typeof ResourceDefSchema>;
+
+
 export const ActionEnvelopeSchema = z.object({
   sessionId: z.string(),
   actionId: z.string(),
@@ -33,6 +39,7 @@ export const ServerErrorSchema = z.object({
     'WRONG_TURN_PHASE',
     'PLACEMENT_ALREADY_DONE',
     'ACTION_NOT_ALLOWED_IN_PHASE',
+    'DUPLICATE_RESOURCE_ID',
   ]),
   message: z.string(),
   details: z.unknown().optional(),
@@ -44,6 +51,7 @@ export const EventLogEntrySchema = z.object({
   at: z.number(),
   kind: z.string(),
   message: z.string(),
+  payload: z.unknown().optional(),
 });
 export type EventLogEntry = z.infer<typeof EventLogEntrySchema>;
 
@@ -67,7 +75,7 @@ export type Player = z.infer<typeof PlayerSchema>;
 export const HexCoordSchema = z.object({ q: z.number().int(), r: z.number().int() });
 export type HexCoord = z.infer<typeof HexCoordSchema>;
 
-export const TileSchema = z.object({ id: z.string(), kind: z.string().min(1) });
+export const TileSchema = z.object({ id: z.string(), kind: z.string().min(1), production: z.record(z.string(), z.number().int().nonnegative()).default({}) });
 export type Tile = z.infer<typeof TileSchema>;
 
 export const PlacedTileSchema = z.object({
@@ -81,7 +89,7 @@ export type PlacedTile = z.infer<typeof PlacedTileSchema>;
 export const GameStateSchema = z.object({
   // Turn phase lifecycle: awaitingPlacement -> awaitingAction -> awaitingPass
   // Enforces one placement per turn, then at most one other action, then mandatory pass.
-  phase: z.enum(['awaitingPlacement','awaitingAction','awaitingPass']),
+  phase: z.enum(["awaitingPlacement","awaitingAction","awaitingPass"]),
   // Turn invariants:
   // - Exactly one active player at all times (players.length >= 1 => 0 <= activePlayerIndex < players.length).
   // - activePlayerIndex always valid.
@@ -95,6 +103,9 @@ export const GameStateSchema = z.object({
   board: z.object({
     cells: z.array(z.object({ key: z.string(), tile: PlacedTileSchema })),
   }),
+  // Resource registry and per-player resource pools.
+  resources: z.object({ registry: z.array(ResourceDefSchema) }),
+  resourcesByPlayerId: z.record(z.string(), z.record(z.string(), z.number().int().nonnegative())).default({}),
   // Tile supply and per-player hands. Invariants:
   // - drawIndex in [0, tiles.length]
   // - a tile id exists in exactly one location (undrawn supply, some player's hand, or board)
@@ -132,6 +143,8 @@ export interface ClientToServerEvents {
 
 export type InterServerEvents = Record<string, never>;
 export type SocketData = Record<string, never>;
+
+
 
 
 

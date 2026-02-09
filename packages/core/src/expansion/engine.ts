@@ -1,5 +1,5 @@
 import { z, type ZodTypeAny } from 'zod';
-import type { ActionEnvelope, GameConfig, GameSnapshot, PlacedTile } from '../protocol';
+import type { ActionEnvelope, GameConfig, GameSnapshot, PlacedTile, ResourceDef } from '../protocol';
 import { GameSnapshotSchema } from '../protocol';
 import type { EngineRegistries, EngineOptions } from './types';
 import { buildEngineRegistries } from './registry';
@@ -36,6 +36,13 @@ export interface Engine {
 export function createEngine(options: EngineOptions): Engine {
   const registries = buildEngineRegistries(options);
 
+  // Base resource definitions (session-scoped)
+  const baseResources: ResourceDef[] = [
+    { id: 'domestic', label: 'Domestic' },
+    { id: 'foreign', label: 'Foreign' },
+    { id: 'media', label: 'Media' },
+  ];
+
   // Register core action schemas (immutable)
   registries.actions.set('core.noop', { type: 'core.noop', payload: z.unknown() as unknown as ZodTypeAny });
   registries.actions.set('core.passTurn', { type: 'core.passTurn', payload: z.object({}).strict() as ZodTypeAny });
@@ -55,10 +62,22 @@ export function createEngine(options: EngineOptions): Engine {
     const players = (config.players ?? []).map((p, i) => ({ id: p.id, name: p.name, index: i }));
     // Generate deterministic supply and deal 1 tile to each player at start so turn 1 can place.
     const tiles = generateSupplyTiles({ seed: config.seed ?? 'seed' });
-    const handsInit: Record<string, Array<{ id: string; kind: string }>> = Object.fromEntries(players.map((p) => [p.id, []]));
+    const handsInit: Record<string, Array<{ id: string; kind: string; production: Record<string, number> }>> = Object.fromEntries(players.map((p) => [p.id, []]));
     let drawIndex = 0;
     for (const p of players) { const t = tiles[drawIndex]; if (t !== undefined) { (handsInit[p.id]!).push(t); drawIndex++; } }
-    const snapshot: GameSnapshot = {
+    const resourcesRegistry: ResourceDef[] = (() => {
+      const m = new Map<string, ResourceDef>();
+      for (const r of baseResources) m.set(r.id, r);
+      for (const expId of (config.enabledExpansions ?? [])) {
+        const defs = registries.resourceDefProviders.get(expId) ?? [];
+        for (const d of defs) { if (!m.has(d.id)) m.set(d.id, d); }
+      }
+      return [...m.values()].sort((a,b)=>a.id.localeCompare(b.id));
+    })();
+    const pools: Record<string, Record<string, number>> = Object.fromEntries(
+      players.map(p => [p.id, Object.fromEntries(resourcesRegistry.map(r => [r.id, 0]))])
+    );
+    let snapshot: GameSnapshot = {
       sessionId: config.sessionId,
       revision: 0,
       createdAt: now,
@@ -71,6 +90,8 @@ export function createEngine(options: EngineOptions): Engine {
         phase: 'awaitingPlacement',
         turn: 1,
         board: { cells: [] },
+        resources: { registry: resourcesRegistry },
+        resourcesByPlayerId: pools,
         supply: { tiles, drawIndex },
         hands: handsInit,
         extensions: {},
@@ -81,7 +102,14 @@ export function createEngine(options: EngineOptions): Engine {
       const init = registries.stateInitializers.get(id);
       if (init) (snapshot.state.extensions as Record<string, unknown>)[id] = init();
     }
-    return snapshot;
+    
+      // Invoke generic onSessionCreate hooks; allow snapshot mutation
+      for (const h of registries.hooks.onSessionCreate) {
+        const hfn = h as (snap: GameSnapshot) => unknown;
+        const maybe = hfn(snapshot);
+        if (maybe && typeof maybe === 'object' && 'state' in maybe) { snapshot = GameSnapshotSchema.parse(maybe); }
+      }
+      return snapshot;
   }function applyAction(snapshot: GameSnapshot, action: ActionEnvelope) {
     const schema = registries.actions.get(action.type);
     if (!schema) {
@@ -121,34 +149,56 @@ export function createEngine(options: EngineOptions): Engine {
     const phase = (snapshot.state as { phase: 'awaitingPlacement' | 'awaitingAction' | 'awaitingPass' }).phase as 'awaitingPlacement' | 'awaitingAction' | 'awaitingPass';
 
     // Core action reducers with phase gates
-    if (action.type === 'core.passTurn') {
+        if (action.type === 'core.passTurn') {
       if (phase !== 'awaitingPass') {
         return { ok: false as const, error: { code: 'WRONG_TURN_PHASE' as EngineErrorCode, message: 'Pass is only allowed in awaitingPass' } };
       }
       const nextIndex = (activeIndex + 1) % players.length;
       const at = Date.now();
-      const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} ended their turn` };
+      // Deterministic resource resolution for the passing player
+      const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> };
+      const sorted = [...board.cells].sort((a,b)=>a.key.localeCompare(b.key));
+      const totals: Record<string, number> = {};
+      let tileCount = 0;
+      for (const cell of sorted) {
+        if (cell.tile.placedBy === active.id) {
+          tileCount++;
+          const prod = (cell.tile.tile as { production?: Record<string, number> }).production;
+          if (prod) {
+            for (const [rid, amt] of Object.entries(prod)) {
+              totals[rid] = (totals[rid] ?? 0) + (amt ?? 0);
+            }
+          }
+        }
+      }
+      const pools = (snapshot.state.resourcesByPlayerId as Record<string, Record<string, number>>) ?? {};
+      const current = { ...(pools[active.id] ?? {}) };
+      for (const [rid, amt] of Object.entries(totals)) {
+        current[rid] = (current[rid] ?? 0) + amt;
+      }
+      const resEntry = { id: action.actionId + ':res', at, kind: 'resourceResolution', message: `${active.name ?? active.id} resources resolved`, payload: { playerId: active.id, delta: totals, tileCount } };
+      const passEntry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} ended their turn` };
       const next: GameSnapshot = {
         ...snapshot,
         revision: snapshot.revision + 1,
         updatedAt: at,
-        state: { ...snapshot.state, activePlayerIndex: nextIndex, activePlayerId: players[nextIndex]?.id, phase: 'awaitingPlacement', turn: (snapshot.state.turn as number) + 1 },
-        log: [...snapshot.log, entry],
+        state: { ...snapshot.state, resourcesByPlayerId: { ...pools, [active.id]: current }, activePlayerIndex: nextIndex, activePlayerId: players[nextIndex]?.id, phase: 'awaitingPlacement', turn: (snapshot.state.turn as number) + 1 },
+        log: [...snapshot.log, resEntry, passEntry],
       };
       GameSnapshotSchema.parse(next);
-      return { ok: true as const, next, events: [entry] };
+      return { ok: true as const, next, events: [resEntry, passEntry] };
     }
 
     if (action.type === 'core.drawTile') {
       if (phase !== 'awaitingAction') {
         return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Draw is only allowed after placement' } };
       }
-      const supply = snapshot.state.supply as { tiles: Array<{ id: string; kind: string }>; drawIndex: number };
+      const supply = snapshot.state.supply as { tiles: Array<{ id: string; kind: string; production: Record<string, number> }>; drawIndex: number };
       if (supply.drawIndex >= supply.tiles.length) {
         return { ok: false as const, error: { code: 'SUPPLY_EMPTY' as EngineErrorCode, message: 'No tiles left to draw' } };
       }
-      const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string }>>;
-      const hand: Array<{ id: string; kind: string }> = hands[active.id] ?? [];
+      const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string; production: Record<string, number> }>>;
+      const hand: Array<{ id: string; kind: string; production: Record<string, number> }> = hands[active.id] ?? [];
       if (hand.length >= 5) {
         return { ok: false as const, error: { code: 'HAND_FULL' as EngineErrorCode, message: 'Hand limit reached' } };
       }
@@ -185,7 +235,7 @@ export function createEngine(options: EngineOptions): Engine {
       if (board.cells.some((c) => c.tile.tile.id === payload.tileId)) {
         return { ok: false as const, error: { code: 'DUPLICATE_TILE_ID' as EngineErrorCode, message: 'Tile id already placed' } };
       }
-      const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string }>>;
+      const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string; production: Record<string, number> }>>;
       const hand = hands[active.id] ?? [];
       const tileIdx = hand.findIndex((t) => t.id === payload.tileId);
       if (tileIdx === -1) {
@@ -238,6 +288,11 @@ export function createEngine(options: EngineOptions): Engine {
 
   return { registries, createInitialSnapshot, applyAction };
 }
+
+
+
+
+
 
 
 
