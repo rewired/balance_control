@@ -161,17 +161,37 @@ export function createEngine(options: EngineOptions): Engine {
     }
 
     if (action.type === 'core.drawTile') {
-      if (phase !== 'awaitingAction') { return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Draw is only allowed after placement' } }; }
-      const supply = snapshot.state.supply as { tiles: Array<{ id: string; kind: string; production: Record<string, number> }>; drawIndex: number }; if (supply.drawIndex >= supply.tiles.length) { return { ok: false as const, error: { code: 'SUPPLY_EMPTY' as EngineErrorCode, message: 'No tiles left to draw' } }; }
-      const hands = snapshot.state.hands as Record<string, Array<{ id: string; kind: string; production: Record<string, number> }>>; const hand: Array<{ id: string; kind: string; production: Record<string, number> }> = hands[active.id] ?? []; if (hand.length >= 5) { return { ok: false as const, error: { code: 'HAND_FULL' as EngineErrorCode, message: 'Hand limit reached' } }; }
-      const drawn = supply.tiles[supply.drawIndex]!; const at = Date.now(); const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} drew a tile` };
-      const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...snapshot.state, supply: { tiles: supply.tiles, drawIndex: supply.drawIndex + 1 }, hands: { ...hands, [active.id]: [...hand, drawn] }, phase: 'awaitingPass' }, log: [...snapshot.log, entry] };
-      for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} } GameSnapshotSchema.parse(next);
-      const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
-      let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
-      return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
+      if (phase !== 'awaitingPlacement') { return { ok: false as const, error: { code: 'ACTION_NOT_ALLOWED_IN_PHASE' as EngineErrorCode, message: 'Draw only allowed at turn start' } }; }
+      const supply = snapshot.state.supply as { tiles: Array<{ id: string; kind: string; production: Record<string, number> }>; drawIndex: number; openDiscard: Array<{ id: string; kind: string; production: Record<string, number }> };
+      let drawIndex = supply.drawIndex;
+      let pending: { id: string; kind: string; production: Record<string, number> } | null = null;
+      while (drawIndex < supply.tiles.length) {
+        const t = supply.tiles[drawIndex]!;
+        // For MVP, global placeability is always true (board infinite; adjacency checked at placement)
+        const hasAny = true;
+        if (hasAny) { pending = t; drawIndex++; break; }
+        // Unplaceable -> discard openly and continue
+        const newDiscard = [...(supply.openDiscard ?? []), t];
+        drawIndex++;
+        (supply as any).openDiscard = newDiscard;
+      }
+      const at = Date.now();
+      if (!pending) {
+        const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} found no placeable tile (supply empty)` };
+        const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...snapshot.state, supply: { ...supply, drawIndex }, pendingPlacementTile: null, phase: 'awaitingAction' }, log: [...snapshot.log, entry] };
+        for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} } GameSnapshotSchema.parse(next);
+        const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
+        let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
+        return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
+      } else {
+        const entry = { id: action.actionId, at, kind: action.type, message: `${active.name ?? active.id} drew a tile for placement` };
+        const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: { ...snapshot.state, supply: { ...supply, drawIndex }, pendingPlacementTile: pending }, log: [...snapshot.log, entry] };
+        for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} } GameSnapshotSchema.parse(next);
+        const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
+        let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
+        return { ok: true as const, next: finalNext, events: [entry, ...extraEvents] };
+      }
     }
-
     if (action.type === 'core.placeTile') {
       if (phase !== 'awaitingPlacement') { return { ok: false as const, error: { code: 'PLACEMENT_ALREADY_DONE' as EngineErrorCode, message: 'Placement already performed this turn' } }; }
       const payload = action.payload as { coord: { q: number; r: number }; tileId: string }; const key = `${payload.coord.q},${payload.coord.r}`; const board = snapshot.state.board as { cells: Array<{ key: string; tile: PlacedTile }> };
