@@ -1,12 +1,22 @@
 ﻿# Dependencies
 node_modules/
+.pnpm-store/
 
-# Builds
+# Builds & coverage
 dist/
+build/
 coverage/
 
-# Vite
+# Vite / tooling caches
 .vite/
+.vitest/
+.cache/
+tmp/
+.temp/
+
+# Environment variables
+.env
+.env.*
 
 # Logs
 *.log
@@ -15,7 +25,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# OS/Editor
+# OS / Editor
 .DS_Store
 Thumbs.db
 .vscode/
