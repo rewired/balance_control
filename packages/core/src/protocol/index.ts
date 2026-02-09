@@ -136,7 +136,8 @@ export const GameStateSchema = z.object({
   // - drawIndex in [0, tiles.length]
   // - a tile id exists in exactly one location (undrawn supply, some player's hand, or board)
   // - hands exist for all players
-  supply: z.object({ tiles: z.array(TileSchema), drawIndex: z.number().int().nonnegative(), openDiscard: z.array(TileSchema).default([]) }),\n  pendingPlacementTile: TileSchema.nullable().optional(),
+  supply: z.object({ tiles: z.array(TileSchema), drawIndex: z.number().int().nonnegative(), openDiscard: z.array(TileSchema).default([]) }),
+  pendingPlacementTile: TileSchema.nullable().optional(),
   // Expansion-owned state slots.
   extensions: z.record(z.string(), z.unknown()),
 });
