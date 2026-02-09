@@ -8,7 +8,7 @@ const blocker: ExpansionModule = { id: 'block', version: '0.0.0', register(reg) 
     const effs = (snap.state.effects ?? []) as Array<any>;
     for (const e of effs) {
       const blocks = e?.modifiers?.blockActionTypes as string[] | undefined;
-      if (blocks && blocks.includes(action.type)) return { reject: { code: 'HOOK_REJECTED', message: 'blocked by effect' } };
+      const ownerOk = !e.ownerPlayerId || e.ownerPlayerId === action.actorId; if (ownerOk && blocks && blocks.includes(action.type)) return { reject: { code: 'HOOK_REJECTED', message: 'blocked by effect' } };
     }
   });
 } };

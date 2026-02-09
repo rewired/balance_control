@@ -9,7 +9,7 @@ function once<T>(emitter: Socket, event: string): Promise<T> {
 }
 
 describe('server turn phase enforcement', () => {
-  it('enforces place -> draw -> pass', async () => {
+  it('enforces draw -> place -> action -> pass (7.1/7.2)', async () => {
     const { app, httpServer } = createApp();
     await new Promise<void>((r) => httpServer.listen(0, r));
     const address = httpServer.address();
@@ -23,17 +23,12 @@ describe('server turn phase enforcement', () => {
     socket.emit('client:join', { sessionId });
     await once<GameSnapshot>(socket, 'server:snapshot');
 
-    // Draw before placement -> error
+    // Place before draw -> error (must draw first)
     let errP = once<ServerError>(socket, 'server:error');
-    socket.emit('client:dispatch', { sessionId, actionId: 'd0', type: 'core.drawTile', payload: {}, actorId: 'p1' });
-    let err = await errP; expect(['ACTION_NOT_ALLOWED_IN_PHASE','WRONG_TURN_PHASE']).toContain(err.code);
+    socket.emit('client:dispatch', { sessionId, actionId: 'p0', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 } }, actorId: 'p1' });
+    let err = await errP; expect(err.code).toBe('ACTION_NOT_ALLOWED_IN_PHASE');
 
-    // Make sure p1 has a tile in hand for placement: issue a draw is not allowed, so simulate setup by drawing after manual hand seed
-    // Seed one tile into hand directly via snapshot mutation is not possible from client; instead draw after placement, so we need a tile id beforehand
-    // Workaround: read supply top tile id and ask server to accept it after we inject via placeTile (the engine checks hand, so we must draw first)
-    // Instead, do minimal: draw is still disallowed; we cannot place without hand; therefore we skip complex e2e and only assert the negative cases here.
-
-    // Pass before allowed -> error
+    // Pass before action -> error (must complete placement and one action)
     errP = once<ServerError>(socket, 'server:error');
     socket.emit('client:dispatch', { sessionId, actionId: 'pass', type: 'core.passTurn', payload: {}, actorId: 'p1' });
     err = await errP; expect(err.code).toBe('WRONG_TURN_PHASE');
@@ -42,5 +37,3 @@ describe('server turn phase enforcement', () => {
     await new Promise<void>((r) => httpServer.close(() => r()));
   });
 });
-
-

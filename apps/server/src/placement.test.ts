@@ -9,7 +9,7 @@ function once<T>(emitter: Socket, event: string): Promise<T> {
 }
 
 describe('server placeTile integration', () => {
-  it('creates session and applies core.placeTile', async () => {
+  it('creates session and applies draw -> place', async () => {
     const { app, httpServer } = createApp();
     await new Promise<void>((r) => httpServer.listen(0, r));
     const address: import('node:net').AddressInfo | string | null = httpServer.address();
@@ -21,25 +21,20 @@ describe('server placeTile integration', () => {
     const socket = ioc(`http://localhost:${port}`);
     await once(socket, 'connect');
     socket.emit('client:join', { sessionId: res.body.sessionId });
-    const first = await once<GameSnapshot>(socket, 'server:snapshot');
+    await once<GameSnapshot>(socket, 'server:snapshot');
 
-    // Place from initial hand (one tile dealt at start)
-    const hand = (first.state.hands as any)['p1'] as Array<{ id: string; kind: string }>;
-    const tileId = hand[0].id;
+    // Draw at turn start (7.1)
+    socket.emit('client:dispatch', { sessionId: res.body.sessionId, actionId: 'd1', type: 'core.drawTile', payload: {}, actorId: 'p1' });
+    const afterDraw = await once<GameSnapshot>(socket, 'server:snapshot');
+    expect((afterDraw.state as any).pendingPlacementTile).toBeTruthy();
 
-    // Place from hand
-    const action = { sessionId: first.sessionId, actionId: 'place1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 }, tileId }, actorId: 'p1' };
-    socket.emit('client:dispatch', action);
-    const next = await once<GameSnapshot>(socket, 'server:snapshot');
-
-    expect(next.revision).toBeGreaterThan(first.revision);
-    const cell = next.state.board.cells.find((c: { key: string; tile: { tile: { id: string; kind: string }; placedBy: string; placedAtTurn: number } }) => c.key === '0,0');
-    expect(cell?.tile.tile.id).toBe(tileId);
+    // Place immediately (7.1)
+    socket.emit('client:dispatch', { sessionId: res.body.sessionId, actionId: 'p1', type: 'core.placeTile', payload: { coord: { q: 0, r: 0 } }, actorId: 'p1' });
+    const afterPlace = await once<GameSnapshot>(socket, 'server:snapshot');
+    const cell = afterPlace.state.board.cells.find((c: { key: string }) => c.key === '0,0');
+    expect(cell).toBeTruthy();
 
     socket.close();
     await new Promise<void>((r) => httpServer.close(() => r()));
   });
 });
-
-
-

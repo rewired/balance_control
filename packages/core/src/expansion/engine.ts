@@ -174,7 +174,7 @@ export function createEngine(options: EngineOptions): Engine {
       // Engine ticks: prune effects, reset per-round flags when wrapping
       let newState: any = { ...snapshot.state, resourcesByPlayerId: { ...pools, [active.id]: current }, activePlayerIndex: nextIndex, activePlayerId: plist[nextIndex]?.id, phase: 'awaitingPlacement', round: nextRound, turnInRound: nextTurnInRound, roundStartPlayerIndex, turn: ((snapshot.state as any).turn as number) + 1 };
       if (nextIndex === roundStartPlayerIndex) {
-        try { newState.extensions = resetMeasureRoundFlags(newState.extensions); } catch {}
+        try { const ex: any = { ...(newState.extensions as any) }; for (const k of Object.keys(ex)) { const ext: any = ex[k]; if (ext && typeof ext === 'object' && 'measures' in ext && ext.measures) { ext.measures = resetMeasureRoundFlags(ext.measures as any); } } newState.extensions = ex; } catch {}
       }
       const pruned = pruneExpiredEffects(newState, plist[nextIndex]?.id);
       const next: GameSnapshot = { ...snapshot, revision: snapshot.revision + 1, updatedAt: at, state: pruned, log: [...snapshot.log, passEntry] };
