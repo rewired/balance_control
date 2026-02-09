@@ -1,4 +1,4 @@
-import type { MeasureState } from './types';
+﻿import type { MeasureState } from './types';
 
 function hashSeed(str: string): number {
   let h = 0x811c9dc5;
@@ -12,7 +12,7 @@ export function initMeasureState(opts: { playerIds: string[]; deckIds: string[];
   const deck = [...opts.deckIds];
   for (let i = deck.length - 1; i > 0; i--) { const j = rnd() % (i + 1); const t = deck[i]; deck[i] = deck[j]!; deck[j] = t!; }
   const drawPile = deck;
-  const state: MeasureState = { drawPile, discardPile: [], faceUp: [], recycled: false, playsByMeasureId: {}, playedThisRoundByPlayerId: Object.fromEntries(opts.playerIds.map(id => [id, false])), handByPlayerId: Object.fromEntries(opts.playerIds.map(id => [id, []])) };
+  const state: MeasureState = { drawPile, discardPile: [], faceUp: [], recycled: false, playsByMeasureId: {}, playedThisRoundByPlayerId: Object.fromEntries(opts.playerIds.map(id => [id, false])), handByPlayerId: Object.fromEntries(opts.playerIds.map(id => [id, []])), seed: opts.seed };
   return refillFaceUp(state);
 }
 
@@ -22,7 +22,7 @@ export function refillFaceUp(state: MeasureState): MeasureState {
     if (next.drawPile.length === 0) {
       if (!next.recycled && next.discardPile.length > 0) {
         // one-time recycle: shuffle discard into draw
-        const rnd = lcg(hashSeed('recycle'));
+        const rnd = lcg(hashSeed(`${next.seed}|measures|recycle`));
         const d = [...next.discardPile]; next.discardPile = []; next.recycled = true;
         for (let i = d.length - 1; i > 0; i--) { const j = rnd() % (i + 1); const t = d[i]; d[i] = d[j]!; d[j] = t!; }
         next.drawPile = d;
@@ -66,3 +66,6 @@ export function clearPlayedThisRoundFlags(state: MeasureState): MeasureState {
   for (const k of Object.keys(next.playedThisRoundByPlayerId).sort()) next.playedThisRoundByPlayerId[k] = false;
   return next;
 }
+
+
+

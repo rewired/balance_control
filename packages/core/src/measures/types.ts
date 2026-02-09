@@ -1,4 +1,4 @@
-export type MeasureState = {
+﻿export type MeasureState = {
   drawPile: string[];
   discardPile: string[];
   faceUp: string[]; // up to 3
@@ -6,4 +6,5 @@ export type MeasureState = {
   playsByMeasureId: Record<string, number>;
   playedThisRoundByPlayerId: Record<string, boolean>;
   handByPlayerId: Record<string, string[]>;
+  seed: string;
 };

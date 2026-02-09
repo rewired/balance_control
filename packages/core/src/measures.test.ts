@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+﻿import { describe, it, expect } from 'vitest';
 import { initMeasureState, takeFaceUpMeasure, playMeasure, refillFaceUp, clearPlayedThisRoundFlags } from './measures/state';
 
 describe('measures scaffold', () => {
@@ -10,6 +10,7 @@ describe('measures scaffold', () => {
     expect(st2.handByPlayerId['p1'].length).toBe(2);
     expect(() => takeFaceUpMeasure(st2, 'p1', 0)).toThrowError('HAND_LIMIT');
   });
+
   it('play enforces per-round and per-card caps; recycle once', () => {
     let st = initMeasureState({ playerIds: ['p1'], deckIds: ['a','b','c'], seed: 'x' });
     // Fill hand with two cards
@@ -25,5 +26,16 @@ describe('measures scaffold', () => {
     // Drain draw pile; attempt to refill beyond -> triggers (single) recycle when discard present
     st = refillFaceUp({ ...st, drawPile: [], recycled: false });
     expect(st.recycled).toBe(true);
+  });
+
+  it('recycle order depends on session seed', () => {
+    // Build a common pre-recycle state and vary only the seed
+    const base = initMeasureState({ playerIds: ['p1'], deckIds: ['Z'], seed: 'base' });
+    const common = { ...base, drawPile: [], discardPile: ['X1','X2','X3','X4','X5'], faceUp: [], recycled: false };
+    const a = refillFaceUp({ ...common, seed: 's1' });
+    const b = refillFaceUp({ ...common, seed: 's2' });
+    const ordA = a.drawPile.join(',');
+    const ordB = b.drawPile.join(',');
+    expect(ordA).not.toBe(ordB);
   });
 });
