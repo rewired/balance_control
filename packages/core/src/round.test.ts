@@ -26,9 +26,11 @@ describe('round tracking', () => {
     // p3 -> after pass wraps to start, round increments
     r = engine.applyAction(s, { sessionId: 's', actionId: 'd3', type: 'core.drawTile', payload: {}, actorId: 'p3' } as any); if (!r.ok) throw new Error('p3 draw');
     r = engine.applyAction(r.next, { sessionId: 's', actionId: 'p3', type: 'core.placeTile', payload: { coord: { q: 2, r: 0 } }, actorId: 'p3' } as any); if (!r.ok) throw new Error('p3 place');
+    r = engine.applyAction(r.next, { sessionId: 's', actionId: 'i3', type: 'core.placeInfluence', payload: { coord: { q: 2, r: 0 }, amount: 1 }, actorId: 'p3' } as any); if (!r.ok) throw new Error('p3 act');
     r = engine.applyAction(r.next, { sessionId: 's', actionId: 'x3', type: 'core.passTurn', payload: {}, actorId: 'p3' } as any); if (!r.ok) throw new Error('p3 pass');
     s = r.next;
     expect((s.state as any).round).toBe(2);
     expect((s.state as any).turnInRound).toBe(1);
   });
 });
+
