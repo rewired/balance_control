@@ -288,7 +288,7 @@ export function createEngine(options: EngineOptions): Engine {
         const entry = { id: action.actionId, at, kind: action.type, message: 'Action applied' };
         const nextState = (phase === 'awaitingAction' && action.type !== 'core.passTurn') ? { ...res.next.state, phase: 'awaitingPass' as const } : res.next.state;
         const next = { ...res.next, state: nextState, revision: snapshot.revision + 1, updatedAt: at, log: [...snapshot.log, entry] } as GameSnapshot;
-        for (const h of registries.hooks onApplyAction) { try { (h as any)(next, action); } catch {} }
+        for (const h of registries.hooks.onApplyAction) { try { (h as any)(next, action); } catch {} }
         GameSnapshotSchema.parse(next);
         const extraEvents: any[] = []; for (const h of registries.hooks.onAfterAction) { try { const ev = (h as any)(next, action); if (Array.isArray(ev)) extraEvents.push(...ev); } catch {} }
         let finalNext = next; for (const h of registries.hooks.onSnapshot) { try { const maybe = (h as any)(finalNext); if (maybe && typeof maybe === 'object' && 'state' in maybe) { finalNext = GameSnapshotSchema.parse(maybe); } } catch {} }
@@ -301,4 +301,5 @@ export function createEngine(options: EngineOptions): Engine {
 
   return { registries, createInitialSnapshot, applyAction };
 }
+
 
